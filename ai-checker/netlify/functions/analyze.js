@@ -1,7 +1,12 @@
 // netlify/functions/analyze.js
+// גרסה: 1.1.0 | תאריך: 2026-04-28 | שינוי: gemini-2.5-flash + 4096 tokens
 // פונקציה שרצה בשרת Netlify - מסתירה את ה-API key ושולחת בקשה ל-Gemini
 
+const FUNCTION_VERSION = '1.1.0';
+
 exports.handler = async (event, context) => {
+    console.log(`[analyze] v${FUNCTION_VERSION} invoked`);
+    
     // הגדרת CORS - מאפשר גישה מהדפדפן
     const headers = {
         'Access-Control-Allow-Origin': '*',
@@ -115,7 +120,7 @@ ${text}
                 }],
                 generationConfig: {
                     temperature: 0.3,
-                    maxOutputTokens: 2048,
+                    maxOutputTokens: 4096,
                     responseMimeType: "application/json"
                 }
             })
@@ -172,7 +177,7 @@ ${text}
         return {
             statusCode: 200,
             headers: { ...headers, 'Content-Type': 'application/json' },
-            body: JSON.stringify(analysis)
+            body: JSON.stringify({ ...analysis, _version: FUNCTION_VERSION })
         };
 
     } catch (err) {
