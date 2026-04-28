@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<!-- גרסה: 1.0.0 | תאריך: 2026-04-28 | תיאור: מערכת לזיהוי תוכן AI בעבודות תלמידים | פיתוח: רני בן זאב -->
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>זיהוי כתיבת AI - מערכת לבוחנים</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --primary-light: #a29bfe;
+            --success: #00b894;
+            --warning: #fdcb6e;
+            --danger: #e74c3c;
+            --bg: #f5f6fa;
+            --card: #ffffff;
+            --text: #2d3436;
+            --text-dim: #636e72;
+            --border: #dfe6e9;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            min-height: 100vh;
+            color: var(--text);
+            padding: 20px 0;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 0 16px; }
+
+        /* Header */
+        .header {
+            background: var(--card);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .header h1 {
+            font-size: 1.9rem;
+            font-weight: 900;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+        .header h1 .version {
+            font-size: 11px;
+            background: rgba(108,92,231,0.15);
+            padding: 3px 10px;
+            border-radius: 8px;
+            font-weight: 700;
+            font-family: monospace;
+            margin-right: 8px;
+            opacity: 0.85;
+            vertical-align: middle;
+            color: var(--primary);
+        }
+        .header p {
+            color: var(--text-dim);
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card);
+            border-radius: 18px;
+            padding: 28px;
+            margin-bottom: 20px;
+            box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+        }
+        .card h2 {
+            font-size: 1.3rem;
+            font-weight: 900;
+            margin-bottom: 16px;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Textarea */
+        textarea {
+            width: 100%;
+            min-height: 220px;
+            padding: 16px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 1rem;
+            line-height: 1.7;
+            resize: vertical;
+            color: var(--text);
+            background: #fafbfc;
+            transition: border-color 0.2s;
+        }
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            background: white;
+        }
+        .char-counter {
+            text-align: left;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+            margin-top: 6px;
+            font-family: monospace;
+        }
+        .char-counter.error { color: var(--danger); font-weight: 700; }
+
+        /* Button */
+        .btn-analyze {
+            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            color: white;
+            border: none;
+            padding: 16px 36px;
+            border-radius: 14px;
+            font-size: 1.1rem;
+            font-weight: 900;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: transform 0.15s, box-shadow 0.15s;
+            box-shadow: 0 4px 12px rgba(108,92,231,0.3);
+        }
+        .btn-analyze:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(108,92,231,0.4);
+        }
+        .btn-analyze:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid var(--border);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-text {
+            color: var(--text-dim);
+            font-size: 1rem;
+        }
+
+        /* Results */
+        .results { display: none; }
+        .results.active { display: block; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* AI Score Display */
+        .ai-score-card {
+            text-align: center;
+            padding: 30px 24px;
+            border-radius: 16px;
+            margin-bottom: 16px;
+        }
+        .ai-score-card.human { background: linear-gradient(135deg, #00b894, #55efc4); color: white; }
+        .ai-score-card.mixed { background: linear-gradient(135deg, #fdcb6e, #ffeaa7); color: #2d3436; }
+        .ai-score-card.ai { background: linear-gradient(135deg, #e17055, #fab1a0); color: white; }
+        .ai-score-card.definitely_ai { background: linear-gradient(135deg, #d63031, #fab1a0); color: white; }
+        
+        .ai-score-card .verdict-icon {
+            font-size: 60px;
+            margin-bottom: 8px;
+        }
+        .ai-score-card .verdict-text {
+            font-size: 1.5rem;
+            font-weight: 900;
+            margin-bottom: 8px;
+        }
+        .ai-score-card .ai-likelihood {
+            font-size: 4rem;
+            font-weight: 900;
+            line-height: 1;
+            margin: 12px 0;
+        }
+        .ai-score-card .ai-likelihood-label {
+            font-size: 0.95rem;
+            opacity: 0.9;
+        }
+        .ai-score-card .summary {
+            font-size: 1rem;
+            margin-top: 14px;
+            opacity: 0.95;
+            line-height: 1.5;
+        }
+
+        /* Indicators */
+        .indicator-section {
+            margin-bottom: 14px;
+        }
+        .indicator-section h3 {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .indicator-section.ai h3 { color: var(--danger); }
+        .indicator-section.human h3 { color: var(--success); }
+        .indicator-list {
+            list-style: none;
+            padding-right: 0;
+        }
+        .indicator-list li {
+            padding: 10px 14px;
+            margin-bottom: 6px;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            border-right: 4px solid;
+        }
+        .indicator-section.ai .indicator-list li {
+            background: #fee;
+            border-right-color: var(--danger);
+            color: #c0392b;
+        }
+        .indicator-section.human .indicator-list li {
+            background: #efe;
+            border-right-color: var(--success);
+            color: #006266;
+        }
+
+        /* Questions */
+        .questions-card {
+            background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+            color: white;
+            border-radius: 16px;
+            padding: 24px;
+        }
+        .questions-card h2 {
+            color: white;
+            margin-bottom: 8px;
+        }
+        .questions-card p.subtitle {
+            opacity: 0.9;
+            font-size: 0.95rem;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        .question-item {
+            background: rgba(255,255,255,0.15);
+            border-radius: 10px;
+            padding: 14px 16px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        .question-item .num {
+            background: white;
+            color: var(--primary);
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            flex-shrink: 0;
+            font-size: 0.9rem;
+        }
+        .question-item .text {
+            flex: 1;
+        }
+        .btn-copy-questions {
+            background: white;
+            color: var(--primary);
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            font-weight: 900;
+            cursor: pointer;
+            margin-top: 16px;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 1rem;
+        }
+        .btn-copy-questions:hover {
+            background: #f0f0f5;
+        }
+
+        /* Disclaimer */
+        .disclaimer {
+            background: #fff8e1;
+            border: 2px solid #fdcb6e;
+            border-radius: 12px;
+            padding: 14px 18px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            color: #6c5b00;
+            line-height: 1.5;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .disclaimer .icon { font-size: 24px; flex-shrink: 0; }
+
+        /* Error */
+        .error-msg {
+            background: #fee;
+            border: 2px solid var(--danger);
+            color: var(--danger);
+            padding: 16px;
+            border-radius: 12px;
+            margin-top: 16px;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        /* Footer */
+        .footer {
+            text-align: center;
+            color: white;
+            padding: 20px;
+            font-size: 0.85rem;
+            opacity: 0.85;
+        }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            .header { padding: 22px 18px; }
+            .header h1 { font-size: 1.4rem; }
+            .card { padding: 20px 16px; }
+            .ai-score-card .ai-likelihood { font-size: 3rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🔍 זיהוי כתיבת AI <span class="version">v1.0.0</span></h1>
+            <p>מערכת לבדיקת תשובות בעבודות חקר - לאיתור תוכן שנכתב בעזרת בינה מלאכותית</p>
+        </div>
+
+        <!-- אזהרה -->
+        <div class="disclaimer">
+            <span class="icon">ℹ️</span>
+            <div>
+                <strong>חשוב לדעת:</strong> אין כלי 100% מדויק לזיהוי AI. הניתוח כאן הוא הערכה בלבד ומהווה כלי עזר. ההמלצה היא לשלב את הניתוח עם שיחת הבנה עם התלמיד.
+            </div>
+        </div>
+
+        <!-- Input Card -->
+        <div class="card">
+            <h2><span class="material-icons-round">edit_note</span> הדבק את התשובה לבדיקה</h2>
+            <textarea id="textInput" placeholder="הדבק כאן את הטקסט שכתב התלמיד (מינימום 50 תווים)..." oninput="updateCounter()"></textarea>
+            <div class="char-counter" id="charCounter">0 תווים</div>
+            <button class="btn-analyze" id="analyzeBtn" onclick="analyzeText()">
+                <span class="material-icons-round">psychology</span>
+                <span id="btnText">נתח את התשובה</span>
+            </button>
+            <div id="errorMsg"></div>
+        </div>
+
+        <!-- Loading -->
+        <div class="card loading" id="loadingCard" style="display:none;">
+            <div class="spinner"></div>
+            <div class="loading-text">🤖 מנתח את התשובה... עוד כמה שניות</div>
+        </div>
+
+        <!-- Results -->
+        <div class="results" id="results">
+            <!-- AI Score -->
+            <div class="card" style="padding:0;overflow:hidden;">
+                <div class="ai-score-card" id="scoreCard">
+                    <div class="verdict-icon" id="verdictIcon">🤔</div>
+                    <div class="verdict-text" id="verdictText">-</div>
+                    <div class="ai-likelihood" id="aiLikelihood">0</div>
+                    <div class="ai-likelihood-label">% הסתברות לכתיבת AI</div>
+                    <div class="summary" id="summary">-</div>
+                </div>
+            </div>
+
+            <!-- Indicators -->
+            <div class="card">
+                <div class="indicator-section ai" id="aiIndicatorsSection">
+                    <h3><span class="material-icons-round">smart_toy</span> סימנים של כתיבת AI</h3>
+                    <ul class="indicator-list" id="aiIndicators"></ul>
+                </div>
+                <div class="indicator-section human" id="humanIndicatorsSection" style="margin-top:20px;">
+                    <h3><span class="material-icons-round">person</span> סימנים של כתיבה אנושית</h3>
+                    <ul class="indicator-list" id="humanIndicators"></ul>
+                </div>
+            </div>
+
+            <!-- Questions -->
+            <div class="questions-card">
+                <h2><span class="material-icons-round">help_outline</span> שאלות מומלצות לתלמיד</h2>
+                <p class="subtitle">שאל את התלמיד את השאלות הבאות כדי לוודא שהוא מבין את התוכן שכתב:</p>
+                <div id="questionsList"></div>
+                <button class="btn-copy-questions" onclick="copyQuestions()">
+                    <span class="material-icons-round">content_copy</span>
+                    העתק את כל השאלות
+                </button>
+            </div>
+        </div>
+
+        <div class="footer">
+            פיתוח - רני בן זאב | מערכת זיהוי AI לבוחני עבודות חקר
+        </div>
+    </div>
+
+    <script>
+        const MIN_LENGTH = 50;
+        const MAX_LENGTH = 10000;
+
+        function updateCounter() {
+            const text = document.getElementById('textInput').value;
+            const counter = document.getElementById('charCounter');
+            counter.textContent = `${text.length} תווים`;
+            counter.className = 'char-counter';
+            
+            if (text.length > MAX_LENGTH) {
+                counter.classList.add('error');
+                counter.textContent = `${text.length} תווים (חורג מהמקסימום ${MAX_LENGTH})`;
+            } else if (text.length > 0 && text.length < MIN_LENGTH) {
+                counter.classList.add('error');
+                counter.textContent = `${text.length} תווים (מינימום ${MIN_LENGTH})`;
+            }
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('errorMsg');
+            el.innerHTML = `<div class="error-msg">⚠️ ${msg}</div>`;
+            setTimeout(() => { el.innerHTML = ''; }, 6000);
+        }
+
+        async function analyzeText() {
+            const text = document.getElementById('textInput').value.trim();
+            
+            if (text.length < MIN_LENGTH) {
+                showError(`הטקסט קצר מדי - יש להזין לפחות ${MIN_LENGTH} תווים`);
+                return;
+            }
+            if (text.length > MAX_LENGTH) {
+                showError(`הטקסט ארוך מדי - מקסימום ${MAX_LENGTH} תווים`);
+                return;
+            }
+
+            // הסתרת תוצאות קודמות
+            document.getElementById('results').classList.remove('active');
+            document.getElementById('loadingCard').style.display = 'block';
+            
+            const btn = document.getElementById('analyzeBtn');
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'שגיאה בניתוח');
+                }
+
+                displayResults(data);
+            } catch (err) {
+                console.error(err);
+                showError(err.message || 'שגיאה לא צפויה');
+            } finally {
+                document.getElementById('loadingCard').style.display = 'none';
+                btn.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            // Verdict
+            const verdictMap = {
+                human: { icon: '👤', text: 'סביר אנושי', class: 'human' },
+                mixed: { icon: '🤔', text: 'שילוב - חשוד', class: 'mixed' },
+                ai: { icon: '🤖', text: 'סביר AI', class: 'ai' },
+                definitely_ai: { icon: '🚨', text: 'כמעט בוודאות AI', class: 'definitely_ai' }
+            };
+            const v = verdictMap[data.verdict] || verdictMap.mixed;
+            
+            const card = document.getElementById('scoreCard');
+            card.className = 'ai-score-card ' + v.class;
+            document.getElementById('verdictIcon').textContent = v.icon;
+            document.getElementById('verdictText').textContent = v.text;
+            document.getElementById('aiLikelihood').textContent = data.ai_likelihood;
+            document.getElementById('summary').textContent = data.summary || '';
+
+            // AI indicators
+            const aiList = document.getElementById('aiIndicators');
+            aiList.innerHTML = '';
+            if (data.ai_indicators && data.ai_indicators.length) {
+                data.ai_indicators.forEach(ind => {
+                    const li = document.createElement('li');
+                    li.textContent = ind;
+                    aiList.appendChild(li);
+                });
+                document.getElementById('aiIndicatorsSection').style.display = 'block';
+            } else {
+                document.getElementById('aiIndicatorsSection').style.display = 'none';
+            }
+
+            // Human indicators
+            const humanList = document.getElementById('humanIndicators');
+            humanList.innerHTML = '';
+            if (data.human_indicators && data.human_indicators.length) {
+                data.human_indicators.forEach(ind => {
+                    const li = document.createElement('li');
+                    li.textContent = ind;
+                    humanList.appendChild(li);
+                });
+                document.getElementById('humanIndicatorsSection').style.display = 'block';
+            } else {
+                document.getElementById('humanIndicatorsSection').style.display = 'none';
+            }
+
+            // Questions
+            const qList = document.getElementById('questionsList');
+            qList.innerHTML = '';
+            if (data.questions_for_student && data.questions_for_student.length) {
+                data.questions_for_student.forEach((q, i) => {
+                    const div = document.createElement('div');
+                    div.className = 'question-item';
+                    div.innerHTML = `<div class="num">${i + 1}</div><div class="text">${q}</div>`;
+                    qList.appendChild(div);
+                });
+            }
+
+            // הצגת התוצאות
+            document.getElementById('results').classList.add('active');
+            document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function copyQuestions() {
+            const items = document.querySelectorAll('#questionsList .text');
+            const text = Array.from(items).map((el, i) => `${i + 1}. ${el.textContent}`).join('\n');
+            
+            if (navigator.clipboard) {
+                navigator.clipboard.writeText(text).then(() => {
+                    alert('✓ השאלות הועתקו!');
+                });
+            } else {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+                alert('✓ השאלות הועתקו!');
+            }
+        }
+    </script>
+</body>
+</html>
