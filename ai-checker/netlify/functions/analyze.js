@@ -104,7 +104,7 @@ ${text}
 5. תזכור: אין דרך 100% לזהות AI. הניתוח שלך הוא הערכה.`;
 
         // קריאה ל-Gemini API
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${API_KEY}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
         const geminiResponse = await fetch(geminiUrl, {
             method: 'POST',
