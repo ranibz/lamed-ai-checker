@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- גרסה: 1.2.0 | תאריך: 2026-04-28 | שינוי: prompt מותאם לתלמידי תקשורת | פיתוח: רני בן זאב -->
+<!-- גרסה: 1.4.0 | תאריך: 2026-04-28 | שינוי: תמיכה במחוון - הערכה לפי סעיף + הצעת ציון | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -14,6 +14,7 @@
             --success: #00b894;
             --warning: #fdcb6e;
             --danger: #e74c3c;
+            --info: #0984e3;
             --bg: #f5f6fa;
             --card: #ffffff;
             --text: #2d3436;
@@ -30,7 +31,6 @@
         }
         .container { max-width: 900px; margin: 0 auto; padding: 0 16px; }
 
-        /* Header */
         .header {
             background: var(--card);
             border-radius: 20px;
@@ -57,13 +57,8 @@
             vertical-align: middle;
             color: var(--primary);
         }
-        .header p {
-            color: var(--text-dim);
-            font-size: 1rem;
-            line-height: 1.5;
-        }
+        .header p { color: var(--text-dim); font-size: 1rem; line-height: 1.5; }
 
-        /* Card */
         .card {
             background: var(--card);
             border-radius: 18px;
@@ -81,36 +76,59 @@
             gap: 8px;
         }
 
-        /* Textarea */
-        textarea {
+        .form-row { margin-bottom: 16px; }
+        .form-row label {
+            display: block;
+            font-weight: 700;
+            font-size: 0.95rem;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+        select, textarea, input[type="text"] {
             width: 100%;
-            min-height: 220px;
-            padding: 16px;
+            padding: 14px 16px;
             border: 2px solid var(--border);
             border-radius: 12px;
             font-family: inherit;
             font-size: 1rem;
-            line-height: 1.7;
-            resize: vertical;
             color: var(--text);
             background: #fafbfc;
             transition: border-color 0.2s;
         }
-        textarea:focus {
+        select:focus, textarea:focus, input[type="text"]:focus {
             outline: none;
             border-color: var(--primary);
             background: white;
         }
-        .char-counter {
-            text-align: left;
-            color: var(--text-dim);
-            font-size: 0.85rem;
-            margin-top: 6px;
-            font-family: monospace;
-        }
+        textarea { min-height: 220px; line-height: 1.7; resize: vertical; }
+        select { cursor: pointer; font-weight: 700; }
+        .form-row .hint { font-size: 0.85rem; color: var(--text-dim); margin-top: 6px; }
+        .char-counter { text-align: left; color: var(--text-dim); font-size: 0.85rem; margin-top: 6px; font-family: monospace; }
         .char-counter.error { color: var(--danger); font-weight: 700; }
 
-        /* Button */
+        .criterion-preview {
+            background: rgba(108,92,231,0.08);
+            border-right: 4px solid var(--primary);
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-top: 8px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .criterion-preview.visible { display: block; }
+        .criterion-preview .title { font-weight: 900; color: var(--primary); margin-bottom: 4px; }
+        .criterion-preview .desc { color: var(--text-dim); line-height: 1.5; }
+        .criterion-preview .points {
+            display: inline-block;
+            background: var(--primary);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            margin-top: 6px;
+        }
+
         .btn-analyze {
             background: linear-gradient(135deg, var(--primary), var(--primary-light));
             color: white;
@@ -133,19 +151,11 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(108,92,231,0.4);
         }
-        .btn-analyze:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
+        .btn-analyze:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        /* Loading */
-        .loading {
-            text-align: center;
-            padding: 40px 20px;
-        }
+        .loading { text-align: center; padding: 40px 20px; }
         .spinner {
-            width: 50px;
-            height: 50px;
+            width: 50px; height: 50px;
             border: 5px solid var(--border);
             border-top-color: var(--primary);
             border-radius: 50%;
@@ -153,72 +163,101 @@
             margin: 0 auto 20px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
-        .loading-text {
-            color: var(--text-dim);
-            font-size: 1rem;
-        }
+        .loading-text { color: var(--text-dim); font-size: 1rem; }
 
-        /* Results */
         .results { display: none; }
         .results.active { display: block; animation: fadeIn 0.4s; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* AI Score Display */
-        .ai-score-card {
-            text-align: center;
-            padding: 30px 24px;
-            border-radius: 16px;
-            margin-bottom: 16px;
-        }
+        .ai-score-card { text-align: center; padding: 30px 24px; border-radius: 16px; margin-bottom: 16px; }
         .ai-score-card.human { background: linear-gradient(135deg, #00b894, #55efc4); color: white; }
         .ai-score-card.mixed { background: linear-gradient(135deg, #fdcb6e, #ffeaa7); color: #2d3436; }
         .ai-score-card.ai { background: linear-gradient(135deg, #e17055, #fab1a0); color: white; }
         .ai-score-card.definitely_ai { background: linear-gradient(135deg, #d63031, #fab1a0); color: white; }
-        
-        .ai-score-card .verdict-icon {
-            font-size: 60px;
-            margin-bottom: 8px;
-        }
-        .ai-score-card .verdict-text {
-            font-size: 1.5rem;
-            font-weight: 900;
-            margin-bottom: 8px;
-        }
-        .ai-score-card .ai-likelihood {
-            font-size: 4rem;
-            font-weight: 900;
-            line-height: 1;
-            margin: 12px 0;
-        }
-        .ai-score-card .ai-likelihood-label {
-            font-size: 0.95rem;
-            opacity: 0.9;
-        }
-        .ai-score-card .summary {
-            font-size: 1rem;
-            margin-top: 14px;
-            opacity: 0.95;
-            line-height: 1.5;
-        }
+        .ai-score-card .verdict-icon { font-size: 60px; margin-bottom: 8px; }
+        .ai-score-card .verdict-text { font-size: 1.5rem; font-weight: 900; margin-bottom: 8px; }
+        .ai-score-card .ai-likelihood { font-size: 4rem; font-weight: 900; line-height: 1; margin: 12px 0; }
+        .ai-score-card .ai-likelihood-label { font-size: 0.95rem; opacity: 0.9; }
+        .ai-score-card .summary { font-size: 1rem; margin-top: 14px; opacity: 0.95; line-height: 1.5; }
 
-        /* Indicators */
-        .indicator-section {
-            margin-bottom: 14px;
+        /* Rubric Evaluation Card */
+        .rubric-card {
+            background: linear-gradient(135deg, #0984e3, #74b9ff);
+            color: white;
+            border-radius: 16px;
+            padding: 28px;
+            margin-bottom: 16px;
         }
-        .indicator-section h3 {
-            font-size: 1rem;
-            font-weight: 700;
-            margin-bottom: 10px;
+        .rubric-card h2 {
+            color: white;
+            font-size: 1.3rem;
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
-            gap: 6px;
+            gap: 8px;
         }
+        .rubric-status-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.15);
+            padding: 16px 20px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .rubric-status-badge {
+            padding: 8px 18px;
+            border-radius: 50px;
+            font-weight: 900;
+            font-size: 1rem;
+        }
+        .rubric-status-badge.complete { background: var(--success); color: white; }
+        .rubric-status-badge.partial { background: var(--warning); color: var(--text); }
+        .rubric-status-badge.incomplete { background: var(--danger); color: white; }
+        .rubric-score { display: flex; align-items: baseline; gap: 6px; }
+        .rubric-score .num { font-size: 2.5rem; font-weight: 900; color: white; line-height: 1; }
+        .rubric-score .max { font-size: 1.2rem; opacity: 0.8; }
+
+        .rubric-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+        }
+        .rubric-section h3 { font-size: 1rem; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+        .rubric-section ul { list-style: none; padding: 0; }
+        .rubric-section li {
+            padding: 8px 0;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            display: flex;
+            gap: 8px;
+            align-items: flex-start;
+        }
+        .rubric-section li::before {
+            content: '';
+            min-width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: white;
+            margin-top: 8px;
+        }
+        .rubric-explanation {
+            background: rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 16px 20px;
+            font-size: 0.95rem;
+            line-height: 1.6;
+            margin-top: 8px;
+        }
+
+        .indicator-section { margin-bottom: 14px; }
+        .indicator-section h3 { font-size: 1rem; font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
         .indicator-section.ai h3 { color: var(--danger); }
         .indicator-section.human h3 { color: var(--success); }
-        .indicator-list {
-            list-style: none;
-            padding-right: 0;
-        }
+        .indicator-list { list-style: none; padding-right: 0; }
         .indicator-list li {
             padding: 10px 14px;
             margin-bottom: 6px;
@@ -227,34 +266,17 @@
             line-height: 1.5;
             border-right: 4px solid;
         }
-        .indicator-section.ai .indicator-list li {
-            background: #fee;
-            border-right-color: var(--danger);
-            color: #c0392b;
-        }
-        .indicator-section.human .indicator-list li {
-            background: #efe;
-            border-right-color: var(--success);
-            color: #006266;
-        }
+        .indicator-section.ai .indicator-list li { background: #fee; border-right-color: var(--danger); color: #c0392b; }
+        .indicator-section.human .indicator-list li { background: #efe; border-right-color: var(--success); color: #006266; }
 
-        /* Questions */
         .questions-card {
             background: linear-gradient(135deg, #6c5ce7, #a29bfe);
             color: white;
             border-radius: 16px;
             padding: 24px;
         }
-        .questions-card h2 {
-            color: white;
-            margin-bottom: 8px;
-        }
-        .questions-card p.subtitle {
-            opacity: 0.9;
-            font-size: 0.95rem;
-            margin-bottom: 16px;
-            line-height: 1.5;
-        }
+        .questions-card h2 { color: white; margin-bottom: 8px; }
+        .questions-card p.subtitle { opacity: 0.9; font-size: 0.95rem; margin-bottom: 16px; line-height: 1.5; }
         .question-item {
             background: rgba(255,255,255,0.15);
             border-radius: 10px;
@@ -279,9 +301,7 @@
             flex-shrink: 0;
             font-size: 0.9rem;
         }
-        .question-item .text {
-            flex: 1;
-        }
+        .question-item .text { flex: 1; }
         .btn-copy-questions {
             background: white;
             color: var(--primary);
@@ -298,11 +318,8 @@
             gap: 8px;
             font-size: 1rem;
         }
-        .btn-copy-questions:hover {
-            background: #f0f0f5;
-        }
+        .btn-copy-questions:hover { background: #f0f0f5; }
 
-        /* Disclaimer */
         .disclaimer {
             background: #fff8e1;
             border: 2px solid #fdcb6e;
@@ -318,7 +335,6 @@
         }
         .disclaimer .icon { font-size: 24px; flex-shrink: 0; }
 
-        /* Error */
         .error-msg {
             background: #fee;
             border: 2px solid var(--danger);
@@ -330,33 +346,24 @@
             text-align: center;
         }
 
-        /* Footer */
-        .footer {
-            text-align: center;
-            color: white;
-            padding: 20px;
-            font-size: 0.85rem;
-            opacity: 0.85;
-        }
+        .footer { text-align: center; color: white; padding: 20px; font-size: 0.85rem; opacity: 0.85; }
 
-        /* Mobile */
         @media (max-width: 600px) {
             .header { padding: 22px 18px; }
             .header h1 { font-size: 1.4rem; }
             .card { padding: 20px 16px; }
             .ai-score-card .ai-likelihood { font-size: 3rem; }
+            .rubric-status-row { flex-direction: column; align-items: flex-start; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <!-- Header -->
         <div class="header">
-            <h1>🔍 זיהוי כתיבת AI <span class="version">v1.2.0</span></h1>
-            <p>מערכת לבדיקת תשובות בעבודות חקר - לאיתור תוכן שנכתב בעזרת בינה מלאכותית</p>
+            <h1>🔍 זיהוי כתיבת AI <span class="version">v1.4.0</span></h1>
+            <p>מערכת לבדיקת תשובות בעבודות חקר - לאיתור תוכן AI והערכה לפי מחוון</p>
         </div>
 
-        <!-- אזהרה -->
         <div class="disclaimer">
             <span class="icon">ℹ️</span>
             <div>
@@ -364,11 +371,68 @@
             </div>
         </div>
 
-        <!-- Input Card -->
         <div class="card">
-            <h2><span class="material-icons-round">edit_note</span> הדבק את התשובה לבדיקה</h2>
-            <textarea id="textInput" placeholder="הדבק כאן את הטקסט שכתב התלמיד (מינימום 50 תווים)..." oninput="updateCounter()"></textarea>
-            <div class="char-counter" id="charCounter">0 תווים</div>
+            <h2><span class="material-icons-round">edit_note</span> פרטי הבדיקה</h2>
+            
+            <div class="form-row">
+                <label>📋 מחוון להערכה (אופציונלי):</label>
+                <select id="rubricSelect" onchange="onRubricChange()">
+                    <option value="">-- ללא מחוון (רק ניתוח AI) --</option>
+                    <optgroup label="מחוון למ&quot;ד תשפ&quot;ו">
+                        <option value="lamed">השתמש במחוון למ"ד</option>
+                    </optgroup>
+                    <optgroup label="מותאם אישית">
+                        <option value="custom">הזן מחוון ידני</option>
+                    </optgroup>
+                </select>
+                <div class="hint">בחר מחוון כדי לקבל גם הערכה והצעת ציון</div>
+            </div>
+
+            <div class="form-row" id="chapterRow" style="display:none;">
+                <label>בחר פרק:</label>
+                <select id="chapterSelect" onchange="onChapterChange()">
+                    <option value="">-- בחר פרק --</option>
+                    <option value="1">פרק 1 · מבוא (10 נק')</option>
+                    <option value="2">פרק 2 · רקע תיאורטי (15 נק')</option>
+                    <option value="3">פרק 3 · מתודולוגיה וחקר (10 נק')</option>
+                    <option value="4">פרק 4 · סיכום ודיון בדילמות (15 נק')</option>
+                    <option value="5">פרק 5 · הגנה (50 נק')</option>
+                </select>
+            </div>
+
+            <div class="form-row" id="criterionRow" style="display:none;">
+                <label>בחר תת-סעיף:</label>
+                <select id="criterionSelect" onchange="onCriterionChange()">
+                    <option value="">-- בחר תת-סעיף --</option>
+                </select>
+                <div class="criterion-preview" id="criterionPreview">
+                    <div class="title" id="criterionPreviewTitle"></div>
+                    <div class="desc" id="criterionPreviewDesc"></div>
+                    <div class="points" id="criterionPreviewPoints"></div>
+                </div>
+            </div>
+
+            <div id="customRubricRow" style="display:none;">
+                <div class="form-row">
+                    <label>שם הסעיף:</label>
+                    <input type="text" id="customCriterionName" placeholder="לדוגמה: רקע תיאורטי">
+                </div>
+                <div class="form-row">
+                    <label>תיאור הדרישות:</label>
+                    <textarea id="customCriterionDesc" style="min-height:100px;" placeholder="תיאור מפורט של מה התלמיד אמור לכתוב בסעיף הזה"></textarea>
+                </div>
+                <div class="form-row">
+                    <label>מקסימום נקודות:</label>
+                    <input type="text" id="customCriterionPoints" placeholder="10" inputmode="numeric">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label>📝 הדבק את התשובה של התלמיד:</label>
+                <textarea id="textInput" placeholder="הדבק כאן את הטקסט שכתב התלמיד (מינימום 50 תווים)..." oninput="updateCounter()"></textarea>
+                <div class="char-counter" id="charCounter">0 תווים</div>
+            </div>
+            
             <button class="btn-analyze" id="analyzeBtn" onclick="analyzeText()">
                 <span class="material-icons-round">psychology</span>
                 <span id="btnText">נתח את התשובה</span>
@@ -376,15 +440,12 @@
             <div id="errorMsg"></div>
         </div>
 
-        <!-- Loading -->
         <div class="card loading" id="loadingCard" style="display:none;">
             <div class="spinner"></div>
             <div class="loading-text">🤖 מנתח את התשובה... עוד כמה שניות</div>
         </div>
 
-        <!-- Results -->
         <div class="results" id="results">
-            <!-- AI Score -->
             <div class="card" style="padding:0;overflow:hidden;">
                 <div class="ai-score-card" id="scoreCard">
                     <div class="verdict-icon" id="verdictIcon">🤔</div>
@@ -395,7 +456,43 @@
                 </div>
             </div>
 
-            <!-- Indicators -->
+            <div class="rubric-card" id="rubricCard" style="display:none;">
+                <h2><span class="material-icons-round">grading</span> הערכה לפי מחוון</h2>
+                
+                <div class="rubric-status-row">
+                    <div>
+                        <div style="font-size:0.85rem;opacity:0.85;margin-bottom:4px;">סטטוס התשובה</div>
+                        <span class="rubric-status-badge" id="rubricStatusBadge">-</span>
+                    </div>
+                    <div class="rubric-score">
+                        <div>
+                            <div style="font-size:0.85rem;opacity:0.85;margin-bottom:4px;">הצעת ציון</div>
+                            <div style="display:flex;align-items:baseline;gap:4px;">
+                                <span class="num" id="rubricScoreNum">0</span>
+                                <span class="max">/<span id="rubricScoreMax">10</span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rubric-section" id="rubricCovered">
+                    <h3>✅ מה התלמיד כיסה</h3>
+                    <ul id="rubricCoveredList"></ul>
+                </div>
+
+                <div class="rubric-section" id="rubricMissing">
+                    <h3>❌ מה חסר או חלקי</h3>
+                    <ul id="rubricMissingList"></ul>
+                </div>
+
+                <div class="rubric-section" id="rubricImprovement">
+                    <h3>💡 הצעות לשיפור</h3>
+                    <ul id="rubricImprovementList"></ul>
+                </div>
+
+                <div class="rubric-explanation" id="rubricExplanation"></div>
+            </div>
+
             <div class="card">
                 <div class="indicator-section ai" id="aiIndicatorsSection">
                     <h3><span class="material-icons-round">smart_toy</span> סימנים של כתיבת AI</h3>
@@ -407,7 +504,6 @@
                 </div>
             </div>
 
-            <!-- Questions -->
             <div class="questions-card">
                 <h2><span class="material-icons-round">help_outline</span> שאלות מומלצות לתלמיד</h2>
                 <p class="subtitle">שאל את התלמיד את השאלות הבאות כדי לוודא שהוא מבין את התוכן שכתב:</p>
@@ -427,6 +523,143 @@
     <script>
         const MIN_LENGTH = 50;
         const MAX_LENGTH = 10000;
+
+        // מחוון למ"ד תשפ"ו
+        const LAMED_RUBRIC = {
+            1: {
+                name: 'מבוא',
+                max: 10,
+                criteria: {
+                    '1.1': { name: 'רקע כללי על נושא העבודה', points: 3, desc: 'הצגת רקע כללי על הנושא הנחקר, רלוונטי ומפורט' },
+                    '1.2': { name: 'רלוונטיות הנושא', points: 3, desc: 'הסבר על חשיבות הנושא והרלוונטיות שלו לחיינו ולחברה' },
+                    '1.3': { name: 'הצגת מכלול העבודה', points: 2, desc: 'תיאור מבנה העבודה - מה יוצג בכל פרק, סקירה כללית של הסיפור' },
+                    '1.4': { name: 'פרומו', points: 2, desc: 'יצירת מתח וסקרנות, "טריילר" שמושך לקריאה' }
+                }
+            },
+            2: {
+                name: 'רקע תיאורטי',
+                max: 15,
+                criteria: {
+                    '2.1': { name: 'סקירה אקדמית', points: 5, desc: 'סקירה תיאורטית מבוססת מקורות אקדמיים אמינים' },
+                    '2.2': { name: '10 מושגים', points: 10, desc: 'הצגה והסבר של 10 מושגים מקצועיים מתחום התקשורת רלוונטיים לחקר' }
+                }
+            },
+            3: {
+                name: 'מתודולוגיה וחקר',
+                max: 10,
+                criteria: {
+                    '3.1': { name: 'מתודולוגיית החקר', points: 1, desc: 'הסבר על שיטת המחקר שנבחרה' },
+                    '3.2': { name: 'ביצוע החקר', points: 6, desc: 'תיאור מפורט של ביצוע המחקר, איסוף הנתונים, התהליך' },
+                    '3.3': { name: 'הצגת ממצאים', points: 3, desc: 'הצגה ברורה של הממצאים שעלו מהחקר, כולל ניתוח ראשוני' }
+                }
+            },
+            4: {
+                name: 'סיכום ודיון בדילמות',
+                max: 15,
+                criteria: {
+                    '4.1': { name: 'סיכום ומסקנות', points: 3, desc: 'סיכום מקיף של העבודה והצגת המסקנות העיקריות' },
+                    '4.2': { name: 'אוריינות תקשורתית', points: 2, desc: 'הצגת היבט של אוריינות תקשורתית - איך הנושא מתקשר לכלי תקשורת' },
+                    '4.3': { name: 'אוריינות אזרחית', points: 2, desc: 'דיון בהשלכות אזרחיות וחברתיות של הממצאים' },
+                    '4.4': { name: 'דיון בדילמות הנובעות מהחקר', points: 8, desc: 'דיון מעמיק בדילמות אתיות/מקצועיות שהתעוררו במהלך החקר' }
+                }
+            },
+            5: {
+                name: 'הגנה',
+                max: 50,
+                criteria: {
+                    '5.1': { name: 'שליטה בחומר', points: 15, desc: 'הוכחת שליטה מעמיקה בחומר ובמושגים המקצועיים' },
+                    '5.2': { name: 'יכולת הסבר וניתוח', points: 15, desc: 'יכולת להסביר רעיונות מורכבים, לנתח ולחבר ביניהם' },
+                    '5.3': { name: 'מענה לשאלות', points: 10, desc: 'מענה ענייני וברור לשאלות הבוחנים' },
+                    '5.4': { name: 'הצגה ונוכחות', points: 10, desc: 'ביטחון, תקשורת בין-אישית, התרשמות חיובית' }
+                }
+            }
+        };
+
+        function onRubricChange() {
+            const value = document.getElementById('rubricSelect').value;
+            document.getElementById('chapterRow').style.display = value === 'lamed' ? 'block' : 'none';
+            document.getElementById('customRubricRow').style.display = value === 'custom' ? 'block' : 'none';
+            document.getElementById('criterionRow').style.display = 'none';
+            document.getElementById('criterionPreview').classList.remove('visible');
+        }
+
+        function onChapterChange() {
+            const ch = document.getElementById('chapterSelect').value;
+            const criterionRow = document.getElementById('criterionRow');
+            const select = document.getElementById('criterionSelect');
+            
+            if (!ch) {
+                criterionRow.style.display = 'none';
+                return;
+            }
+            
+            criterionRow.style.display = 'block';
+            select.innerHTML = '<option value="">-- בחר תת-סעיף --</option>';
+            
+            const chapter = LAMED_RUBRIC[ch];
+            if (!chapter) return;
+            
+            Object.entries(chapter.criteria).forEach(([id, c]) => {
+                const opt = document.createElement('option');
+                opt.value = id;
+                opt.textContent = `${id} ${c.name} (${c.points} נק')`;
+                select.appendChild(opt);
+            });
+        }
+
+        function onCriterionChange() {
+            const ch = document.getElementById('chapterSelect').value;
+            const cId = document.getElementById('criterionSelect').value;
+            const preview = document.getElementById('criterionPreview');
+            
+            if (!ch || !cId) {
+                preview.classList.remove('visible');
+                return;
+            }
+            
+            const chapter = LAMED_RUBRIC[ch];
+            const criterion = chapter.criteria[cId];
+            
+            document.getElementById('criterionPreviewTitle').textContent = `${cId} ${criterion.name}`;
+            document.getElementById('criterionPreviewDesc').textContent = criterion.desc;
+            document.getElementById('criterionPreviewPoints').textContent = `${criterion.points} נק'`;
+            preview.classList.add('visible');
+        }
+
+        function getSelectedCriterion() {
+            const rubric = document.getElementById('rubricSelect').value;
+            
+            if (rubric === 'lamed') {
+                const ch = document.getElementById('chapterSelect').value;
+                const cId = document.getElementById('criterionSelect').value;
+                if (!ch || !cId) return null;
+                
+                const chapter = LAMED_RUBRIC[ch];
+                const criterion = chapter.criteria[cId];
+                
+                return {
+                    chapter: `פרק ${ch} · ${chapter.name}`,
+                    name: `${cId} ${criterion.name}`,
+                    description: criterion.desc,
+                    max_points: criterion.points
+                };
+            } else if (rubric === 'custom') {
+                const name = document.getElementById('customCriterionName').value.trim();
+                const desc = document.getElementById('customCriterionDesc').value.trim();
+                const points = parseInt(document.getElementById('customCriterionPoints').value) || 10;
+                
+                if (!name || !desc) return null;
+                
+                return {
+                    chapter: 'מחוון מותאם',
+                    name: name,
+                    description: desc,
+                    max_points: points
+                };
+            }
+            
+            return null;
+        }
 
         function updateCounter() {
             const text = document.getElementById('textInput').value;
@@ -461,18 +694,30 @@
                 return;
             }
 
-            // הסתרת תוצאות קודמות
+            const criterion = getSelectedCriterion();
+            const rubricChoice = document.getElementById('rubricSelect').value;
+            
+            if (rubricChoice === 'lamed' && !criterion) {
+                showError('בחר פרק ותת-סעיף לפני הניתוח');
+                return;
+            }
+            if (rubricChoice === 'custom' && !criterion) {
+                showError('מלא את שם הסעיף ותיאור הדרישות');
+                return;
+            }
+
             document.getElementById('results').classList.remove('active');
             document.getElementById('loadingCard').style.display = 'block';
-            
-            const btn = document.getElementById('analyzeBtn');
-            btn.disabled = true;
+            document.getElementById('analyzeBtn').disabled = true;
 
             try {
+                const body = { text };
+                if (criterion) body.criterion = criterion;
+                
                 const res = await fetch('/api/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ text })
+                    body: JSON.stringify(body)
                 });
 
                 const data = await res.json();
@@ -487,12 +732,11 @@
                 showError(err.message || 'שגיאה לא צפויה');
             } finally {
                 document.getElementById('loadingCard').style.display = 'none';
-                btn.disabled = false;
+                document.getElementById('analyzeBtn').disabled = false;
             }
         }
 
         function displayResults(data) {
-            // Verdict
             const verdictMap = {
                 human: { icon: '👤', text: 'סביר אנושי', class: 'human' },
                 mixed: { icon: '🤔', text: 'שילוב - חשוד', class: 'mixed' },
@@ -508,7 +752,60 @@
             document.getElementById('aiLikelihood').textContent = data.ai_likelihood;
             document.getElementById('summary').textContent = data.summary || '';
 
-            // AI indicators
+            // הערכת מחוון (חדש!)
+            const rubricCard = document.getElementById('rubricCard');
+            if (data.rubric_evaluation) {
+                rubricCard.style.display = 'block';
+                const r = data.rubric_evaluation;
+                
+                const statusMap = {
+                    complete: { text: '✓ מלא ומקיף', class: 'complete' },
+                    partial: { text: '~ חלקי', class: 'partial' },
+                    incomplete: { text: '✗ לא מספיק', class: 'incomplete' }
+                };
+                const s = statusMap[r.overall_status] || statusMap.partial;
+                const badge = document.getElementById('rubricStatusBadge');
+                badge.className = 'rubric-status-badge ' + s.class;
+                badge.textContent = s.text;
+                
+                document.getElementById('rubricScoreNum').textContent = r.suggested_score ?? 0;
+                document.getElementById('rubricScoreMax').textContent = r.max_points ?? 10;
+                
+                const coveredList = document.getElementById('rubricCoveredList');
+                coveredList.innerHTML = '';
+                (r.what_was_covered || []).forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    coveredList.appendChild(li);
+                });
+                document.getElementById('rubricCovered').style.display = 
+                    (r.what_was_covered || []).length ? 'block' : 'none';
+                
+                const missingList = document.getElementById('rubricMissingList');
+                missingList.innerHTML = '';
+                (r.what_was_missing || []).forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    missingList.appendChild(li);
+                });
+                document.getElementById('rubricMissing').style.display = 
+                    (r.what_was_missing || []).length ? 'block' : 'none';
+                
+                const impList = document.getElementById('rubricImprovementList');
+                impList.innerHTML = '';
+                (r.improvement_suggestions || []).forEach(item => {
+                    const li = document.createElement('li');
+                    li.textContent = item;
+                    impList.appendChild(li);
+                });
+                document.getElementById('rubricImprovement').style.display = 
+                    (r.improvement_suggestions || []).length ? 'block' : 'none';
+                
+                document.getElementById('rubricExplanation').textContent = r.explanation || '';
+            } else {
+                rubricCard.style.display = 'none';
+            }
+
             const aiList = document.getElementById('aiIndicators');
             aiList.innerHTML = '';
             if (data.ai_indicators && data.ai_indicators.length) {
@@ -522,7 +819,6 @@
                 document.getElementById('aiIndicatorsSection').style.display = 'none';
             }
 
-            // Human indicators
             const humanList = document.getElementById('humanIndicators');
             humanList.innerHTML = '';
             if (data.human_indicators && data.human_indicators.length) {
@@ -536,7 +832,6 @@
                 document.getElementById('humanIndicatorsSection').style.display = 'none';
             }
 
-            // Questions
             const qList = document.getElementById('questionsList');
             qList.innerHTML = '';
             if (data.questions_for_student && data.questions_for_student.length) {
@@ -548,11 +843,9 @@
                 });
             }
 
-            // הצגת התוצאות
             document.getElementById('results').classList.add('active');
             document.getElementById('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
             
-            // הצגת גרסת ה-function ב-console (לדיאגנוסטיקה)
             if (data._version) {
                 console.log(`✓ נותח על ידי analyze function v${data._version}`);
             }
