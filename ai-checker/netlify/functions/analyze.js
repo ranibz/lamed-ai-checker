@@ -1,8 +1,8 @@
 // netlify/functions/analyze.js
-// גרסה: 1.4.0 | תאריך: 2026-04-28 | שינוי: תמיכה בהערכת מחוון - הוספת chapter, criterion ו-rubric_evaluation
+// גרסה: 1.4.1 | תאריך: 2026-04-29 | תיקון: maxOutputTokens 4096→8192 (תשובות חתוכות עם מחוון)
 // פונקציה שרצה בשרת Netlify - מסתירה את ה-API key ושולחת בקשה ל-Gemini
 
-const FUNCTION_VERSION = '1.4.0';
+const FUNCTION_VERSION = '1.4.1';
 
 // פונקציית עזר - שמירת רישום ב-Supabase
 async function logToSupabase(data) {
@@ -201,7 +201,7 @@ ${text}
                 }],
                 generationConfig: {
                     temperature: 0.3,
-                    maxOutputTokens: 4096,
+                    maxOutputTokens: 8192,
                     responseMimeType: "application/json"
                 }
             })
