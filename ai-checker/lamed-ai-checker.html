@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- גרסה: 1.5.0 | תאריך: 2026-04-29 | שינוי: תיאורי מחוון מלאים ומדויקים מהמחוון הרשמי | פיתוח: רני בן זאב -->
+<!-- גרסה: 1.6.0 | תאריך: 2026-04-29 | שינוי: הוספת כפתור הורדת PDF של הניתוח | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -7,6 +7,7 @@
     <title>זיהוי כתיבת AI - מערכת לבוחנים</title>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         :root {
             --primary: #6c5ce7;
@@ -320,6 +321,37 @@
         }
         .btn-copy-questions:hover { background: #f0f0f5; }
 
+        /* כפתור הורדת PDF */
+        .btn-download-pdf {
+            background: linear-gradient(135deg, var(--success), #00cec9);
+            color: white;
+            border: none;
+            padding: 16px 32px;
+            border-radius: 14px;
+            font-family: inherit;
+            font-size: 1.05rem;
+            font-weight: 900;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            box-shadow: 0 4px 12px rgba(0,184,148,0.3);
+            transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .btn-download-pdf:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 18px rgba(0,184,148,0.4);
+        }
+        .btn-download-pdf:disabled { opacity: 0.6; cursor: wait; }
+
+        /* מצב יצירת PDF - להסתיר כפתור הורדה ושאר אלמנטים מיותרים */
+        .pdf-mode .btn-download-pdf,
+        .pdf-mode .btn-copy-questions,
+        .pdf-mode #pdfDownloadCard {
+            display: none !important;
+        }
+
         .disclaimer {
             background: #fff8e1;
             border: 2px solid #fdcb6e;
@@ -360,7 +392,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 זיהוי כתיבת AI <span class="version">v1.5.0</span></h1>
+            <h1>🔍 זיהוי כתיבת AI <span class="version">v1.6.0</span></h1>
             <p>מערכת לבדיקת תשובות בעבודות חקר - לאיתור תוכן AI והערכה לפי מחוון</p>
         </div>
 
@@ -511,6 +543,16 @@
                 <button class="btn-copy-questions" onclick="copyQuestions()">
                     <span class="material-icons-round">content_copy</span>
                     העתק את כל השאלות
+                </button>
+            </div>
+
+            <!-- כפתור הורדת PDF - יוצג רק אחרי ניתוח -->
+            <div class="card" style="text-align:center;padding:24px;" id="pdfDownloadCard">
+                <h2 style="justify-content:center;margin-bottom:8px;"><span class="material-icons-round">picture_as_pdf</span> שמירת הדוח</h2>
+                <p style="color:var(--text-dim);font-size:0.95rem;margin-bottom:20px;">הורד PDF של כל הניתוח לשמירה או הדפסה</p>
+                <button class="btn-download-pdf" onclick="downloadPDF()">
+                    <span class="material-icons-round">download</span>
+                    <span id="pdfBtnText">הורד את הניתוח כ-PDF</span>
                 </button>
             </div>
         </div>
@@ -960,6 +1002,68 @@
                 document.execCommand('copy');
                 document.body.removeChild(ta);
                 alert('✓ השאלות הועתקו!');
+            }
+        }
+
+        // הורדת PDF של כל הניתוח
+        async function downloadPDF() {
+            const btn = document.querySelector('.btn-download-pdf');
+            const btnText = document.getElementById('pdfBtnText');
+            const originalText = btnText.textContent;
+            
+            btn.disabled = true;
+            btnText.textContent = 'יוצר PDF...';
+            
+            try {
+                // הסתרת כפתורים מהPDF
+                document.body.classList.add('pdf-mode');
+                
+                // אלמנט להמיר ל-PDF - כל אזור התוצאות
+                const element = document.getElementById('results');
+                
+                // יצירת שם קובץ עם תאריך וסעיף
+                const now = new Date();
+                const dateStr = `${now.getDate()}-${now.getMonth() + 1}-${now.getFullYear()}`;
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
+                
+                // אם נבחר מחוון - להוסיף לשם הקובץ
+                let fileName = `ניתוח-AI_${dateStr}_${timeStr}.pdf`;
+                const rubricSelect = document.getElementById('rubricSelect').value;
+                if (rubricSelect === 'lamed') {
+                    const cId = document.getElementById('criterionSelect').value;
+                    if (cId) {
+                        fileName = `ניתוח-AI_${cId}_${dateStr}_${timeStr}.pdf`;
+                    }
+                }
+                
+                const opt = {
+                    margin: [10, 10, 10, 10],
+                    filename: fileName,
+                    image: { type: 'jpeg', quality: 0.98 },
+                    html2canvas: { 
+                        scale: 2, 
+                        useCORS: true, 
+                        logging: false,
+                        letterRendering: true
+                    },
+                    jsPDF: { 
+                        unit: 'mm', 
+                        format: 'a4', 
+                        orientation: 'portrait',
+                        compress: true
+                    },
+                    pagebreak: { mode: ['css', 'legacy'] }
+                };
+                
+                await html2pdf().set(opt).from(element).save();
+                
+            } catch (err) {
+                console.error('PDF error:', err);
+                alert('שגיאה ביצירת PDF: ' + err.message);
+            } finally {
+                document.body.classList.remove('pdf-mode');
+                btn.disabled = false;
+                btnText.textContent = originalText;
             }
         }
     </script>
