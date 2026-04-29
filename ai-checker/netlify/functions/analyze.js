@@ -1,11 +1,50 @@
 // netlify/functions/analyze.js
-// גרסה: 1.2.0 | תאריך: 2026-04-28 | שינוי: prompt מותאם לתלמידי תקשורת - לא להחשיד שימוש במושגים מקצועיים
+// גרסה: 1.4.0 | תאריך: 2026-04-28 | שינוי: תמיכה בהערכת מחוון - הוספת chapter, criterion ו-rubric_evaluation
 // פונקציה שרצה בשרת Netlify - מסתירה את ה-API key ושולחת בקשה ל-Gemini
 
-const FUNCTION_VERSION = '1.2.0';
+const FUNCTION_VERSION = '1.4.0';
+
+// פונקציית עזר - שמירת רישום ב-Supabase
+async function logToSupabase(data) {
+    try {
+        const SUPABASE_URL = process.env.SUPABASE_URL;
+        const SUPABASE_KEY = process.env.SUPABASE_KEY;
+        
+        if (!SUPABASE_URL || !SUPABASE_KEY) {
+            console.log('[log] Supabase not configured, skipping');
+            return;
+        }
+        
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/ai_checker_logs`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'return=minimal'
+            },
+            body: JSON.stringify(data)
+        });
+        
+        if (!res.ok) {
+            console.error('[log] Supabase error:', res.status, await res.text());
+        } else {
+            console.log('[log] Logged to Supabase successfully');
+        }
+    } catch (err) {
+        console.error('[log] Failed to log:', err.message);
+    }
+}
 
 exports.handler = async (event, context) => {
     console.log(`[analyze] v${FUNCTION_VERSION} invoked`);
+    const startTime = Date.now();
+    
+    // איסוף מידע על הבקשה
+    const ipAddress = event.headers['x-forwarded-for']?.split(',')[0]?.trim() 
+        || event.headers['client-ip'] 
+        || 'unknown';
+    const userAgent = event.headers['user-agent'] || 'unknown';
     
     // הגדרת CORS - מאפשר גישה מהדפדפן
     const headers = {
@@ -29,7 +68,7 @@ exports.handler = async (event, context) => {
     }
 
     try {
-        const { text } = JSON.parse(event.body || '{}');
+        const { text, criterion } = JSON.parse(event.body || '{}');
 
         // ולידציות
         if (!text || typeof text !== 'string') {
@@ -68,12 +107,32 @@ exports.handler = async (event, context) => {
         }
 
         // ה-prompt לג'מיני
-        const prompt = `אתה מומחה לזיהוי תוכן שנכתב על ידי בינה מלאכותית בעברית. עליך לנתח את הטקסט הבא שהוגש על ידי תלמיד בעבודת חקר.
+        let prompt = `אתה מומחה לזיהוי תוכן שנכתב על ידי בינה מלאכותית בעברית. עליך לנתח את הטקסט הבא שהוגש על ידי תלמיד בעבודת חקר.
 
 ⚠️ הקשר חשוב על התלמיד:
 התלמיד הוא תלמיד תקשורת בתיכון, ובעבודת החקר שלו הוא **חייב** להשתמש במושגים מקצועיים מתחום לימודי התקשורת (כגון: מסגור, הבניית מציאות, ספירלת השתיקה, סדר יום, דנוטציה וקונוטציה, סטריאוטיפים, אושיות רשת, ועוד מושגים אקדמיים בתחום).
 **שימוש במושגים מקצועיים אלה הוא דרישה של המטלה ואינו סימן לכתיבת AI.** נהפוך הוא - תלמיד שלא משתמש במושגים מקצועיים זה דבר חשוד יותר.
-התמקד בסימנים אחרים שמרמזים על AI: סגנון אחיד מדי, היעדר מוחלט של טעויות, חוסר בקול אישי או דעה אישית, מבנה משפטים "מושלם" מדי, היעדר דוגמאות אישיות או קונקרטיות מחיי התלמיד, חזרתיות, פסקאות סגורות וממוסגרות מדי שלא נשמעות טבעיות לתלמיד תיכון.
+התמקד בסימנים אחרים שמרמזים על AI: סגנון אחיד מדי, היעדר מוחלט של טעויות, חוסר בקול אישי או דעה אישית, מבנה משפטים "מושלם" מדי, היעדר דוגמאות אישיות או קונקרטיות מחיי התלמיד, חזרתיות, פסקאות סגורות וממוסגרות מדי שלא נשמעות טבעיות לתלמיד תיכון.`;
+
+        // אם הוגדר מחוון - הוסף הערכת מחוון
+        if (criterion && criterion.name) {
+            prompt += `
+
+📋 בנוסף - **הערכה לפי מחוון**:
+התלמיד ענה על הסעיף הבא במחוון של עבודת החקר בלמ"ד:
+
+**פרק:** ${criterion.chapter || 'לא צוין'}
+**שם הסעיף:** ${criterion.name}
+**מקסימום נקודות:** ${criterion.max_points || 'לא צוין'}
+**תיאור הסעיף:** ${criterion.description || 'לא צוין'}
+
+עליך גם להעריך את התשובה ביחס לדרישות הסעיף הזה:
+1. האם התלמיד התייחס לכל הדרישות של הסעיף?
+2. איכות התשובה לעומת המצופה
+3. הצעת ציון לפי משקל הסעיף`;
+        }
+
+        prompt += `
 
 הטקסט לבדיקה:
 """
@@ -100,19 +159,35 @@ ${text}
     "<שאלה 2 - דורשת ידע מעמיק שאי אפשר להמציא מהטקסט>",
     "<שאלה 3 - מבקשת דוגמה אישית או הקשר אישי>",
     "<שאלה 4 - בודקת הבנת מונחים מסוימים מהטקסט>",
-    "<שאלה 5 - מאתגרת, גורמת לתלמיד להסביר במילים שלו>",
-    "<שאלה 6 - מבקשת לקשר לחיים אמיתיים>",
-    "<שאלה 7 - שאלה על תהליך הכתיבה עצמו>"
-  ]
+    "<שאלה 5 - מאתגרת, גורמת לתלמיד להסביר במילים שלו>"
+  ]${criterion && criterion.name ? `,
+  "rubric_evaluation": {
+    "overall_status": "<'complete' (התייחס לכל הדרישות), 'partial' (חלקי), 'incomplete' (לא מספיק)>",
+    "suggested_score": <מספר 0 עד ${criterion.max_points || 10}, הצעת ציון לסעיף>,
+    "max_points": ${criterion.max_points || 10},
+    "what_was_covered": [
+      "<דרישה 1 שהתלמיד כיסה היטב>",
+      "<דרישה 2 שכוסתה>"
+    ],
+    "what_was_missing": [
+      "<דרישה 1 שחסרה או חלקית>",
+      "<דרישה 2 שחסרה>"
+    ],
+    "improvement_suggestions": [
+      "<הצעה 1 איך לשפר את התשובה - ספציפי>",
+      "<הצעה 2>",
+      "<הצעה 3>"
+    ],
+    "explanation": "<פסקה אחת בעברית - הסבר כללי על ההערכה ועל הציון המוצע>"
+  }` : ''}
 }
 
 חשוב מאוד:
 1. הוצא רק JSON תקין - בלי שום טקסט מסביב
 2. השתמש בעברית לכל הערכים בתוך ה-JSON
 3. השאלות חייבות להיות ספציפיות לטקסט שניתן - לא שאלות גנריות
-4. שאל על מושגים מקצועיים שמופיעים בטקסט - האם התלמיד באמת מבין אותם?
-5. תזכור: אין דרך 100% לזהות AI. הניתוח שלך הוא הערכה.
-6. אל תוריד ניקוד בגלל שימוש במושגים מקצועיים בתחום התקשורת - זה נדרש מהתלמיד.`;
+4. אל תוריד ניקוד בגלל שימוש במושגים מקצועיים בתחום התקשורת - זה נדרש מהתלמיד.
+5. בהערכת מחוון - היה הוגן וענייני, התייחס לדרישות הספציפיות של הסעיף.`;
 
         // קריאה ל-Gemini API
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
@@ -178,6 +253,17 @@ ${text}
                 })
             };
         }
+
+        // תיעוד ב-Supabase
+        await logToSupabase({
+            ai_likelihood: analysis.ai_likelihood || null,
+            verdict: analysis.verdict || null,
+            text_length: text.length,
+            ip_address: ipAddress,
+            user_agent: userAgent.substring(0, 200),
+            duration_ms: Date.now() - startTime,
+            success: true
+        });
 
         // החזרה למשתמש
         return {
