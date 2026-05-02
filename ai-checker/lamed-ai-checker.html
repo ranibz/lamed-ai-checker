@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- גרסה: 1.6.0 | תאריך: 2026-04-29 | שינוי: הוספת כפתור הורדת PDF של הניתוח | פיתוח: רני בן זאב -->
+<!-- גרסה: 1.7.1 | תאריך: 2026-05-02 | שינוי: הוספת קרדיט "פיתוח: רני בן זאב" מתחת לכותרת | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -59,6 +59,13 @@
             color: var(--primary);
         }
         .header p { color: var(--text-dim); font-size: 1rem; line-height: 1.5; }
+        .header-credit {
+            color: var(--primary) !important;
+            font-size: 0.9rem !important;
+            font-weight: 700;
+            margin-bottom: 10px !important;
+            opacity: 0.85;
+        }
 
         .card {
             background: var(--card);
@@ -154,17 +161,99 @@
         }
         .btn-analyze:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .loading { text-align: center; padding: 40px 20px; }
+        .loading { text-align: center; padding: 40px 24px; }
         .spinner {
-            width: 50px; height: 50px;
+            width: 56px; height: 56px;
             border: 5px solid var(--border);
             border-top-color: var(--primary);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
+            margin: 0 auto 24px;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
         .loading-text { color: var(--text-dim); font-size: 1rem; }
+
+        /* === מסך טעינה עשיר v1.7.0 === */
+        .loading-stage {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+            min-height: 1.5em;
+            transition: opacity 0.3s;
+        }
+        .loading-stage-icon {
+            font-size: 1.5rem;
+            margin-left: 6px;
+            display: inline-block;
+            animation: bounce 1.2s ease-in-out infinite;
+        }
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+        .loading-substage {
+            color: var(--text-dim);
+            font-size: 0.95rem;
+            min-height: 1.4em;
+            transition: opacity 0.3s;
+        }
+        .progress-container {
+            margin: 24px auto 20px;
+            max-width: 420px;
+            background: var(--border);
+            border-radius: 12px;
+            height: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--primary), #a29bfe);
+            border-radius: 12px;
+            width: 0%;
+            transition: width 0.4s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+        .progress-percent {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 6px;
+        }
+        .loading-tip {
+            margin-top: 24px;
+            padding: 14px 18px;
+            background: rgba(108, 92, 231, 0.08);
+            border-right: 4px solid var(--primary);
+            border-radius: 8px;
+            text-align: right;
+            font-size: 0.92rem;
+            color: var(--text);
+            line-height: 1.6;
+            max-width: 480px;
+            margin-left: auto;
+            margin-right: auto;
+            transition: opacity 0.4s;
+        }
+        .loading-tip strong { color: var(--primary); }
+        .loading-elapsed {
+            margin-top: 12px;
+            color: var(--text-dim);
+            font-size: 0.85rem;
+        }
 
         .results { display: none; }
         .results.active { display: block; animation: fadeIn 0.4s; }
@@ -392,7 +481,8 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 זיהוי כתיבת AI <span class="version">v1.6.0</span></h1>
+            <h1>🔍 זיהוי כתיבת AI <span class="version">v1.7.1</span></h1>
+            <p class="header-credit">פיתוח: רני בן זאב</p>
             <p>מערכת לבדיקת תשובות בעבודות חקר - לאיתור תוכן AI והערכה לפי מחוון</p>
         </div>
 
@@ -474,7 +564,19 @@
 
         <div class="card loading" id="loadingCard" style="display:none;">
             <div class="spinner"></div>
-            <div class="loading-text">🤖 מנתח את התשובה... עוד כמה שניות</div>
+            <div class="loading-stage" id="loadingStage">
+                <span class="loading-stage-icon" id="loadingStageIcon">🔍</span>
+                <span id="loadingStageText">מתחיל ניתוח...</span>
+            </div>
+            <div class="loading-substage" id="loadingSubstage">מכין את הטקסט לבדיקה</div>
+            <div class="progress-container">
+                <div class="progress-bar" id="loadingProgressBar"></div>
+            </div>
+            <div class="progress-percent" id="loadingProgressPercent">0%</div>
+            <div class="loading-tip" id="loadingTip">
+                <strong>💡 טיפ:</strong> בזמן ההמתנה - זכור לבדוק שהתלמיד צירף ביבליוגרפיה תקינה.
+            </div>
+            <div class="loading-elapsed" id="loadingElapsed">⏱️ 0 שניות</div>
         </div>
 
         <div class="results" id="results">
@@ -844,6 +946,7 @@
             document.getElementById('results').classList.remove('active');
             document.getElementById('loadingCard').style.display = 'block';
             document.getElementById('analyzeBtn').disabled = true;
+            startLoadingAnimation(!!criterion);
 
             try {
                 const body = { text };
@@ -861,14 +964,138 @@
                     throw new Error(data.error || 'שגיאה בניתוח');
                 }
 
+                completeLoadingAnimation();
                 displayResults(data);
             } catch (err) {
                 console.error(err);
                 showError(err.message || 'שגיאה לא צפויה');
             } finally {
+                stopLoadingAnimation();
                 document.getElementById('loadingCard').style.display = 'none';
                 document.getElementById('analyzeBtn').disabled = false;
             }
+        }
+
+        // === מנהל מסך טעינה v1.7.0 ===
+        let loadingTimers = [];
+        let loadingStartTime = 0;
+
+        const LOADING_STAGES = [
+            { icon: '📖', text: 'קורא את הטקסט', sub: 'בודק אורך, מבנה ושפה' },
+            { icon: '🧠', text: 'מנתח סגנון כתיבה', sub: 'מחפש סימנים של כתיבת AI לעומת כתיבה אנושית' },
+            { icon: '🔍', text: 'בודק מבנה משפטים', sub: 'אחידות, מורכבות, ושימוש במילות קישור' },
+            { icon: '💭', text: 'מחפש קול אישי', sub: 'דוגמאות אישיות, דעות, וחוויות מחיי התלמיד' },
+            { icon: '📚', text: 'מזהה מושגים מקצועיים', sub: 'מושגי תקשורת שהתלמיד נדרש להשתמש בהם' },
+            { icon: '⚖️', text: 'משקלל אינדיקטורים', sub: 'בונה תמונה כוללת של מקור הטקסט' }
+        ];
+
+        const LOADING_STAGES_RUBRIC = [
+            { icon: '📋', text: 'קורא את דרישות המחוון', sub: 'מבין מה הסעיף דורש מהתלמיד' },
+            { icon: '✅', text: 'מסמן מה כוסה היטב', sub: 'מזהה איזה דרישות התלמיד ענה עליהן' },
+            { icon: '❓', text: 'מסמן מה חסר', sub: 'מזהה דרישות שלא קיבלו מענה מספק' },
+            { icon: '💡', text: 'מנסח הצעות לשיפור', sub: 'בונה הצעות ספציפיות לתלמיד' },
+            { icon: '🎯', text: 'מציע ציון לסעיף', sub: 'משקלל את כל מרכיבי המחוון' }
+        ];
+
+        const LOADING_TIPS = [
+            '<strong>💡 טיפ:</strong> שים לב לשאלות שתקבל - הן מותאמות אישית לטקסט ומיועדות לבדוק אם התלמיד באמת הבין.',
+            '<strong>💡 טיפ:</strong> שימוש במושגים מקצועיים כמו "מסגור" או "סדר יום" אינו סימן ל-AI - זו דרישה של המטלה.',
+            '<strong>💡 טיפ:</strong> הניתוח מתבסס על אינדיקטורים מרובים - לא להסתמך על אחוז ה-AI לבדו.',
+            '<strong>💡 טיפ:</strong> אם יוצא "שילוב" - שווה לקרוא את הטקסט שוב ולשים לב למעברי סגנון.',
+            '<strong>💡 טיפ:</strong> ניתן לשמור את הניתוח כ-PDF בכפתור שיופיע למטה אחרי הניתוח.',
+            '<strong>💡 טיפ:</strong> שאלות הבוחן הכי טובות הן אלו שדורשות מהתלמיד להסביר במילים שלו.',
+            '<strong>💡 טיפ:</strong> כתיבה "מושלמת" מדי, ללא טעויות וללא קול אישי - היא לעיתים קרובות סימן ל-AI.'
+        ];
+
+        function startLoadingAnimation(hasRubric) {
+            loadingStartTime = Date.now();
+            const stages = hasRubric ? [...LOADING_STAGES, ...LOADING_STAGES_RUBRIC] : LOADING_STAGES;
+            const totalDuration = hasRubric ? 28000 : 20000; // הערכה - יתעדכן אם יסתיים מוקדם/מאוחר
+            const stageInterval = totalDuration / stages.length;
+            
+            const stageEl = document.getElementById('loadingStageText');
+            const iconEl = document.getElementById('loadingStageIcon');
+            const subEl = document.getElementById('loadingSubstage');
+            const barEl = document.getElementById('loadingProgressBar');
+            const percentEl = document.getElementById('loadingProgressPercent');
+            const tipEl = document.getElementById('loadingTip');
+            const elapsedEl = document.getElementById('loadingElapsed');
+
+            // טיפ ראשוני אקראי
+            tipEl.innerHTML = LOADING_TIPS[Math.floor(Math.random() * LOADING_TIPS.length)];
+
+            // איפוס
+            stageEl.textContent = stages[0].text;
+            iconEl.textContent = stages[0].icon;
+            subEl.textContent = stages[0].sub;
+            barEl.style.width = '2%';
+            percentEl.textContent = '2%';
+
+            // החלפת שלבים
+            stages.forEach((stage, idx) => {
+                if (idx === 0) return;
+                const t = setTimeout(() => {
+                    stageEl.style.opacity = '0';
+                    iconEl.style.opacity = '0';
+                    subEl.style.opacity = '0';
+                    setTimeout(() => {
+                        stageEl.textContent = stage.text;
+                        iconEl.textContent = stage.icon;
+                        subEl.textContent = stage.sub;
+                        stageEl.style.opacity = '1';
+                        iconEl.style.opacity = '1';
+                        subEl.style.opacity = '1';
+                    }, 200);
+                }, idx * stageInterval);
+                loadingTimers.push(t);
+            });
+
+            // החלפת טיפ באמצע
+            const tipTimer = setTimeout(() => {
+                tipEl.style.opacity = '0';
+                setTimeout(() => {
+                    let newTip;
+                    do {
+                        newTip = LOADING_TIPS[Math.floor(Math.random() * LOADING_TIPS.length)];
+                    } while (newTip === tipEl.innerHTML);
+                    tipEl.innerHTML = newTip;
+                    tipEl.style.opacity = '1';
+                }, 400);
+            }, totalDuration * 0.5);
+            loadingTimers.push(tipTimer);
+
+            // התקדמות הדרגתית - מגיע ל-92% בסוף הזמן המשוער (משאיר מקום לסיום אמיתי)
+            const progressInterval = setInterval(() => {
+                const elapsed = Date.now() - loadingStartTime;
+                const targetPercent = Math.min(92, (elapsed / totalDuration) * 92);
+                barEl.style.width = targetPercent.toFixed(1) + '%';
+                percentEl.textContent = Math.round(targetPercent) + '%';
+                elapsedEl.textContent = `⏱️ ${Math.floor(elapsed / 1000)} שניות`;
+            }, 200);
+            loadingTimers.push(progressInterval);
+        }
+
+        function completeLoadingAnimation() {
+            // קופץ מהר ל-100% כשהתשובה האמיתית מגיעה
+            const barEl = document.getElementById('loadingProgressBar');
+            const percentEl = document.getElementById('loadingProgressPercent');
+            const stageEl = document.getElementById('loadingStageText');
+            const iconEl = document.getElementById('loadingStageIcon');
+            const subEl = document.getElementById('loadingSubstage');
+            
+            barEl.style.width = '100%';
+            percentEl.textContent = '100%';
+            stageEl.textContent = 'הניתוח הושלם!';
+            iconEl.textContent = '✨';
+            subEl.textContent = 'מציג תוצאות...';
+        }
+
+        function stopLoadingAnimation() {
+            loadingTimers.forEach(t => {
+                clearTimeout(t);
+                clearInterval(t);
+            });
+            loadingTimers = [];
         }
 
         function displayResults(data) {
