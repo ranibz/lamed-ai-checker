@@ -1,8 +1,8 @@
 // netlify/functions/analyze.js
-// גרסה: 1.4.1 | תאריך: 2026-04-29 | תיקון: maxOutputTokens 4096→8192 (תשובות חתוכות עם מחוון)
+// גרסה: 1.4.2 | תאריך: 2026-05-02 | תיקון: זיהוי MAX_TOKENS, חילוץ JSON עמיד, maxOutputTokens 8192→16384
 // פונקציה שרצה בשרת Netlify - מסתירה את ה-API key ושולחת בקשה ל-Gemini
 
-const FUNCTION_VERSION = '1.4.1';
+const FUNCTION_VERSION = '1.4.2';
 
 // פונקציית עזר - שמירת רישום ב-Supabase
 async function logToSupabase(data) {
@@ -201,7 +201,7 @@ ${text}
                 }],
                 generationConfig: {
                     temperature: 0.3,
-                    maxOutputTokens: 8192,
+                    maxOutputTokens: 16384,
                     responseMimeType: "application/json"
                 }
             })
@@ -223,9 +223,15 @@ ${text}
         const geminiData = await geminiResponse.json();
 
         // חילוץ הטקסט מהתגובה
-        const responseText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const candidate = geminiData?.candidates?.[0];
+        const responseText = candidate?.content?.parts?.[0]?.text;
+        const finishReason = candidate?.finishReason;
+
+        // לוג מפורט לאבחון
+        console.log(`[analyze] Gemini response: finishReason=${finishReason}, textLength=${responseText?.length || 0}`);
 
         if (!responseText) {
+            console.error('[analyze] Empty response from Gemini:', JSON.stringify(geminiData).substring(0, 500));
             return {
                 statusCode: 500,
                 headers,
@@ -233,23 +239,58 @@ ${text}
             };
         }
 
+        // בדיקה אם התשובה נחתכה באמצע (הסיבה הנפוצה לפרסור שנכשל)
+        if (finishReason && finishReason !== 'STOP') {
+            console.error(`[analyze] Gemini stopped abnormally: ${finishReason}`);
+            
+            const reasonMessages = {
+                'MAX_TOKENS': 'הניתוח חרג מאורך מקסימלי - הטקסט מכיל יותר מדי תוכן להערכת מחוון מלאה. נסה לקצר את הטקסט.',
+                'SAFETY': 'התשובה נחסמה מטעמי בטיחות',
+                'RECITATION': 'התשובה נחסמה בגלל חשד להעתקה',
+                'OTHER': 'הניתוח הופסק מסיבה לא ידועה'
+            };
+            
+            return {
+                statusCode: 500,
+                headers,
+                body: JSON.stringify({ 
+                    error: reasonMessages[finishReason] || `הניתוח הופסק (${finishReason})`,
+                    finishReason
+                })
+            };
+        }
+
         // ניסיון לפרסר את ה-JSON
         let analysis;
         try {
-            // ניקוי - אם יש markdown code blocks
-            const cleaned = responseText
+            // ניקוי - אם יש markdown code blocks (גם אם responseMimeType מגדיר JSON, לפעמים זה קורה)
+            let cleaned = responseText
                 .replace(/```json\s*/g, '')
                 .replace(/```\s*$/g, '')
                 .trim();
+            
+            // אם עדיין יש טקסט מסביב ל-JSON - חילוץ עמיד יותר
+            if (!cleaned.startsWith('{')) {
+                const firstBrace = cleaned.indexOf('{');
+                const lastBrace = cleaned.lastIndexOf('}');
+                if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                    cleaned = cleaned.substring(firstBrace, lastBrace + 1);
+                    console.log('[analyze] Extracted JSON from surrounding text');
+                }
+            }
+            
             analysis = JSON.parse(cleaned);
         } catch (parseErr) {
-            console.error('Parse error:', parseErr, 'Raw:', responseText);
+            console.error('[analyze] Parse error:', parseErr.message);
+            console.error('[analyze] Raw response (first 1000 chars):', responseText.substring(0, 1000));
+            console.error('[analyze] Raw response (last 500 chars):', responseText.substring(Math.max(0, responseText.length - 500)));
             return {
                 statusCode: 500,
                 headers,
                 body: JSON.stringify({ 
                     error: 'התשובה התקבלה אבל לא בפורמט הנכון',
-                    raw: responseText.substring(0, 500)
+                    raw: responseText.substring(0, 500),
+                    parseError: parseErr.message
                 })
             };
         }
