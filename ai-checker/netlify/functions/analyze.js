@@ -1,8 +1,8 @@
 // netlify/functions/analyze.js
-// גרסה: 1.4.2 | תאריך: 2026-05-02 | תיקון: זיהוי MAX_TOKENS, חילוץ JSON עמיד, maxOutputTokens 8192→16384
+// גרסה: 1.5.0 | תאריך: 2026-05-04 | תיקון: Retry אוטומטי כשמתקבל MAX_TOKENS - ניסיון שני עם פרומפט מקוצר. הסרת maxOutputTokens (Gemini 2.5 Flash תומך ב-65K). הודעת שגיאה ברורה לתלמיד.
 // פונקציה שרצה בשרת Netlify - מסתירה את ה-API key ושולחת בקשה ל-Gemini
 
-const FUNCTION_VERSION = '1.4.2';
+const FUNCTION_VERSION = '1.5.0';
 
 // פונקציית עזר - שמירת רישום ב-Supabase
 async function logToSupabase(data) {
@@ -106,17 +106,18 @@ exports.handler = async (event, context) => {
             };
         }
 
-        // ה-prompt לג'מיני
-        let prompt = `אתה מומחה לזיהוי תוכן שנכתב על ידי בינה מלאכותית בעברית. עליך לנתח את הטקסט הבא שהוגש על ידי תלמיד בעבודת חקר.
+        // ה-prompt לג'מיני - בנוי מ-3 חלקים
+        const promptIntro = `אתה מומחה לזיהוי תוכן שנכתב על ידי בינה מלאכותית בעברית. עליך לנתח את הטקסט הבא שהוגש על ידי תלמיד בעבודת חקר.
 
 ⚠️ הקשר חשוב על התלמיד:
 התלמיד הוא תלמיד תקשורת בתיכון, ובעבודת החקר שלו הוא **חייב** להשתמש במושגים מקצועיים מתחום לימודי התקשורת (כגון: מסגור, הבניית מציאות, ספירלת השתיקה, סדר יום, דנוטציה וקונוטציה, סטריאוטיפים, אושיות רשת, ועוד מושגים אקדמיים בתחום).
 **שימוש במושגים מקצועיים אלה הוא דרישה של המטלה ואינו סימן לכתיבת AI.** נהפוך הוא - תלמיד שלא משתמש במושגים מקצועיים זה דבר חשוד יותר.
 התמקד בסימנים אחרים שמרמזים על AI: סגנון אחיד מדי, היעדר מוחלט של טעויות, חוסר בקול אישי או דעה אישית, מבנה משפטים "מושלם" מדי, היעדר דוגמאות אישיות או קונקרטיות מחיי התלמיד, חזרתיות, פסקאות סגורות וממוסגרות מדי שלא נשמעות טבעיות לתלמיד תיכון.`;
 
+        let promptCriterion = '';
         // אם הוגדר מחוון - הוסף הערכת מחוון
         if (criterion && criterion.name) {
-            prompt += `
+            promptCriterion = `
 
 📋 בנוסף - **הערכה לפי מחוון**:
 התלמיד ענה על הסעיף הבא במחוון של עבודת החקר בלמ"ד:
@@ -132,7 +133,12 @@ exports.handler = async (event, context) => {
 3. הצעת ציון לפי משקל הסעיף`;
         }
 
-        prompt += `
+        const buildFullPrompt = (concise = false) => {
+            const conciseNote = concise
+                ? `\n\n⚡ חשוב: השב בקצרה ובתמציתיות. לכל שדה תן תשובה קצרה ועניינית - לא יותר משורה אחת לכל פריט. אל תרחיב.`
+                : '';
+
+            return promptIntro + promptCriterion + conciseNote + `
 
 הטקסט לבדיקה:
 """
@@ -188,47 +194,76 @@ ${text}
 3. השאלות חייבות להיות ספציפיות לטקסט שניתן - לא שאלות גנריות
 4. אל תוריד ניקוד בגלל שימוש במושגים מקצועיים בתחום התקשורת - זה נדרש מהתלמיד.
 5. בהערכת מחוון - היה הוגן וענייני, התייחס לדרישות הספציפיות של הסעיף.`;
+        };
 
-        // קריאה ל-Gemini API
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+        // ===== v1.5.0: פונקציית קריאה ל-Gemini עם תמיכה ב-retry =====
+        const callGemini = async (concise = false) => {
+            const prompt = buildFullPrompt(concise);
+            const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
 
-        const geminiResponse = await fetch(geminiUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: prompt }]
-                }],
-                generationConfig: {
-                    temperature: 0.3,
-                    maxOutputTokens: 16384,
-                    responseMimeType: "application/json"
-                }
-            })
-        });
+            const response = await fetch(geminiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        temperature: 0.3,
+                        // הסרנו maxOutputTokens - Gemini 2.5 Flash מאפשר עד 65K, נשאיר ברירת מחדל
+                        responseMimeType: "application/json"
+                    }
+                })
+            });
 
-        if (!geminiResponse.ok) {
-            const errText = await geminiResponse.text();
-            console.error('Gemini error:', errText);
+            if (!response.ok) {
+                const errText = await response.text();
+                console.error(`[analyze] Gemini HTTP error (concise=${concise}):`, errText);
+                return { httpError: true, errText, status: response.status };
+            }
+
+            const data = await response.json();
+            const candidate = data?.candidates?.[0];
+            const responseText = candidate?.content?.parts?.[0]?.text;
+            const finishReason = candidate?.finishReason;
+
+            console.log(`[analyze] Gemini response (concise=${concise}): finishReason=${finishReason}, textLength=${responseText?.length || 0}`);
+
+            return { responseText, finishReason, raw: data };
+        };
+
+        // ניסיון ראשון - פרומפט מלא
+        let geminiResult = await callGemini(false);
+
+        // אם יש שגיאת HTTP - מחזירים מיד
+        if (geminiResult.httpError) {
             return {
                 statusCode: 500,
                 headers,
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     error: 'שגיאה בתקשורת עם שירות הניתוח',
-                    details: errText.substring(0, 200)
+                    details: geminiResult.errText.substring(0, 200)
                 })
             };
         }
 
-        const geminiData = await geminiResponse.json();
+        // אם נחתך ב-MAX_TOKENS - ננסה שוב עם פרומפט מקוצר
+        if (geminiResult.finishReason === 'MAX_TOKENS') {
+            console.log('[analyze] First attempt hit MAX_TOKENS - retrying with concise prompt');
+            geminiResult = await callGemini(true);
 
-        // חילוץ הטקסט מהתגובה
-        const candidate = geminiData?.candidates?.[0];
-        const responseText = candidate?.content?.parts?.[0]?.text;
-        const finishReason = candidate?.finishReason;
+            if (geminiResult.httpError) {
+                return {
+                    statusCode: 500,
+                    headers,
+                    body: JSON.stringify({
+                        error: 'שגיאה בתקשורת עם שירות הניתוח (ניסיון שני)',
+                        details: geminiResult.errText.substring(0, 200)
+                    })
+                };
+            }
+        }
 
-        // לוג מפורט לאבחון
-        console.log(`[analyze] Gemini response: finishReason=${finishReason}, textLength=${responseText?.length || 0}`);
+        const { responseText, finishReason } = geminiResult;
+        // ===== סוף שינוי v1.5.0 =====
 
         if (!responseText) {
             console.error('[analyze] Empty response from Gemini:', JSON.stringify(geminiData).substring(0, 500));
@@ -239,22 +274,22 @@ ${text}
             };
         }
 
-        // בדיקה אם התשובה נחתכה באמצע (הסיבה הנפוצה לפרסור שנכשל)
+        // בדיקה אם התשובה נחתכה באמצע (אחרי שכבר ניסינו retry במקרה של MAX_TOKENS)
         if (finishReason && finishReason !== 'STOP') {
-            console.error(`[analyze] Gemini stopped abnormally: ${finishReason}`);
+            console.error(`[analyze] Gemini stopped abnormally even after retry: ${finishReason}`);
             
             const reasonMessages = {
-                'MAX_TOKENS': 'הניתוח חרג מאורך מקסימלי - הטקסט מכיל יותר מדי תוכן להערכת מחוון מלאה. נסה לקצר את הטקסט.',
+                'MAX_TOKENS': 'הניתוח לא הושלם בגלל אורך התשובה. אנא נסה לקצר את הטקסט (עד 5,000 תווים) ונסה שוב.',
                 'SAFETY': 'התשובה נחסמה מטעמי בטיחות',
                 'RECITATION': 'התשובה נחסמה בגלל חשד להעתקה',
-                'OTHER': 'הניתוח הופסק מסיבה לא ידועה'
+                'OTHER': 'הניתוח הופסק - אנא נסה שוב'
             };
             
             return {
                 statusCode: 500,
                 headers,
                 body: JSON.stringify({ 
-                    error: reasonMessages[finishReason] || `הניתוח הופסק (${finishReason})`,
+                    error: reasonMessages[finishReason] || `הניתוח הופסק (${finishReason}) - אנא נסה שוב`,
                     finishReason
                 })
             };
