@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- גרסה: 1.7.1 | תאריך: 2026-05-02 | שינוי: הוספת קרדיט "פיתוח: רני בן זאב" מתחת לכותרת | פיתוח: רני בן זאב -->
+<!-- גרסה: 1.8.0 | תאריך: 2026-05-04 | הוספת כפתור "הורד כ-HTML" לשמירת ניתוח כקובץ HTML עצמאי לשליחה למורים. תוויות PDF/HTML שודרגו. | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -481,7 +481,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔍 זיהוי כתיבת AI <span class="version">v1.7.1</span></h1>
+            <h1>🔍 זיהוי כתיבת AI <span class="version">v1.8.0</span></h1>
             <p class="header-credit">פיתוח: רני בן זאב</p>
             <p>מערכת לבדיקת תשובות בעבודות חקר - לאיתור תוכן AI והערכה לפי מחוון</p>
         </div>
@@ -648,14 +648,20 @@
                 </button>
             </div>
 
-            <!-- כפתור הורדת PDF - יוצג רק אחרי ניתוח -->
+            <!-- כפתורי שמירה - יוצגו רק אחרי ניתוח -->
             <div class="card" style="text-align:center;padding:24px;" id="pdfDownloadCard">
-                <h2 style="justify-content:center;margin-bottom:8px;"><span class="material-icons-round">picture_as_pdf</span> שמירת הדוח</h2>
-                <p style="color:var(--text-dim);font-size:0.95rem;margin-bottom:20px;">הורד PDF של כל הניתוח לשמירה או הדפסה</p>
-                <button class="btn-download-pdf" onclick="downloadPDF()">
-                    <span class="material-icons-round">download</span>
-                    <span id="pdfBtnText">הורד את הניתוח כ-PDF</span>
-                </button>
+                <h2 style="justify-content:center;margin-bottom:8px;"><span class="material-icons-round">save</span> שמירת הדוח</h2>
+                <p style="color:var(--text-dim);font-size:0.95rem;margin-bottom:20px;">שמור את הניתוח כקובץ PDF להדפסה, או כקובץ HTML עצמאי לשליחה במייל</p>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+                    <button class="btn-download-pdf" onclick="downloadPDF()">
+                        <span class="material-icons-round">picture_as_pdf</span>
+                        <span id="pdfBtnText">הורד כ-PDF</span>
+                    </button>
+                    <button class="btn-download-pdf" onclick="downloadHTML()" style="background:linear-gradient(135deg, #6c5ce7, #a29bfe);box-shadow:0 4px 12px rgba(108,92,231,0.3);">
+                        <span class="material-icons-round">code</span>
+                        <span id="htmlBtnText">הורד כ-HTML</span>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -1289,6 +1295,194 @@
                 alert('שגיאה ביצירת PDF: ' + err.message);
             } finally {
                 document.body.classList.remove('pdf-mode');
+                btn.disabled = false;
+                btnText.textContent = originalText;
+            }
+        }
+
+        // ===== הורדת HTML עצמאי =====
+        function downloadHTML() {
+            const btn = document.querySelectorAll('.btn-download-pdf')[1];
+            const btnText = document.getElementById('htmlBtnText');
+            const originalText = btnText.textContent;
+            
+            btn.disabled = true;
+            btnText.textContent = 'יוצר קובץ...';
+            
+            try {
+                // איסוף כל הסגנונות מהדף הנוכחי
+                let allStyles = '';
+                document.querySelectorAll('style').forEach(s => allStyles += s.innerHTML + '\n');
+                
+                // קישורים חיצוניים (פונטים ואייקונים)
+                const externalLinks = `
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">`;
+
+                // התוכן של אזור התוצאות
+                const resultsContent = document.getElementById('results').outerHTML
+                    .replace(/onclick="[^"]*"/g, '') // מסיר onclick
+                    .replace(/<button[^>]*btn-copy-questions[^>]*>[\s\S]*?<\/button>/g, '') // מסיר כפתור העתקה
+                    .replace(/<div[^>]*id="pdfDownloadCard"[\s\S]*?<\/div>\s*<\/div>/g, ''); // מסיר כפתורי שמירה
+
+                // טקסט שנותח (אם קצר - מציגים, אם ארוך - לא)
+                const analyzedText = document.getElementById('textInput').value;
+                const showText = analyzedText.length < 5000;
+                
+                // פרטי המחוון אם נבחר
+                const rubricChoice = document.getElementById('rubricSelect').value;
+                let rubricInfo = '';
+                if (rubricChoice === 'lamed') {
+                    const ch = document.getElementById('chapterSelect').value;
+                    const cId = document.getElementById('criterionSelect').value;
+                    if (ch && cId) {
+                        const chapter = LAMED_RUBRIC[ch];
+                        const criterion = chapter.criteria[cId];
+                        rubricInfo = `<div class="card" style="background:rgba(108,92,231,0.05);border:2px solid var(--primary);">
+                            <h2><span class="material-icons-round">grading</span> מחוון שנבדק</h2>
+                            <p style="font-weight:700;color:var(--primary);font-size:1.1rem;margin-bottom:6px;">פרק ${ch} · ${chapter.name}</p>
+                            <p style="font-weight:700;margin-bottom:8px;">${cId} ${criterion.name} (${criterion.points} נק')</p>
+                            <p style="color:var(--text-dim);font-size:0.9rem;line-height:1.6;">${criterion.desc}</p>
+                        </div>`;
+                    }
+                } else if (rubricChoice === 'custom') {
+                    const name = document.getElementById('customCriterionName').value;
+                    const desc = document.getElementById('customCriterionDesc').value;
+                    const points = document.getElementById('customCriterionPoints').value;
+                    if (name) {
+                        rubricInfo = `<div class="card" style="background:rgba(108,92,231,0.05);border:2px solid var(--primary);">
+                            <h2><span class="material-icons-round">grading</span> מחוון מותאם שנבדק</h2>
+                            <p style="font-weight:700;color:var(--primary);margin-bottom:8px;">${name} (${points || '10'} נק')</p>
+                            <p style="color:var(--text-dim);font-size:0.9rem;line-height:1.6;">${desc}</p>
+                        </div>`;
+                    }
+                }
+
+                // קטע הטקסט שנותח
+                let textSection = '';
+                if (showText && analyzedText.length >= 50) {
+                    textSection = `<div class="card">
+                        <h2><span class="material-icons-round">description</span> הטקסט שנותח</h2>
+                        <div style="background:#f5f6fa;padding:18px;border-radius:12px;line-height:1.8;font-size:0.95rem;color:var(--text);max-height:400px;overflow-y:auto;">${
+                            analyzedText.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>')
+                        }</div>
+                        <p style="color:var(--text-dim);font-size:0.85rem;margin-top:10px;">📏 ${analyzedText.length.toLocaleString('he-IL')} תווים</p>
+                    </div>`;
+                }
+
+                const now = new Date();
+                const dateDisplay = now.toLocaleDateString('he-IL') + ' ' + now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+                // בניית הקובץ המלא
+                const fullHTML = `<!DOCTYPE html>
+<!-- דוח ניתוח AI · נוצר ב-${dateDisplay} · מערכת בית חינוך גליל מערבי -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>דוח ניתוח AI - ${dateDisplay}</title>${externalLinks}
+<style>
+${allStyles}
+
+/* התאמות לקובץ ה-HTML העצמאי */
+body { padding: 20px 0; }
+.results { display: block !important; }
+.indicator-section { display: block !important; }
+.report-header {
+    background: white;
+    border-radius: 20px;
+    padding: 28px;
+    margin-bottom: 20px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+}
+.report-header h1 {
+    font-size: 1.7rem;
+    color: var(--primary);
+    margin-bottom: 8px;
+    font-weight: 900;
+}
+.report-header .meta {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+.report-disclaimer {
+    background: #fff8e1;
+    border: 2px solid #fdcb6e;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+    font-size: 0.9rem;
+    color: #6c5b00;
+    line-height: 1.5;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+}
+.report-disclaimer .icon { font-size: 24px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="report-header">
+    <h1>🔍 דוח ניתוח AI - דוגמה</h1>
+    <p style="color:var(--text-dim);">מערכת זיהוי כתיבת AI · בית חינוך גליל מערבי</p>
+    <div class="meta">
+        📅 הופק בתאריך: ${dateDisplay}<br>
+        💡 דוח זה הוא דוגמה לתוצאת ניתוח שמערכת הבדיקה מפיקה
+    </div>
+</div>
+
+<div class="report-disclaimer">
+    <span class="icon">ℹ️</span>
+    <div>
+        <strong>חשוב לדעת:</strong> אין כלי 100% מדויק לזיהוי AI. הניתוח כאן הוא הערכה בלבד ומהווה כלי עזר. ההמלצה היא לשלב את הניתוח עם שיחת הבנה עם התלמיד.
+    </div>
+</div>
+
+${rubricInfo}
+
+${textSection}
+
+${resultsContent}
+
+<div class="footer">
+    פיתוח: רני בן זאב · מערכת זיהוי AI לבוחני עבודות חקר<br>
+    <a href="https://lamed-ai-checker.netlify.app/" style="color:white;text-decoration:underline;">לניתוח מלא בעצמך - לחץ כאן</a>
+</div>
+
+</div>
+</body>
+</html>`;
+
+                // יצירת שם קובץ
+                const dateStr = `${now.getDate()}-${now.getMonth() + 1}-${now.getFullYear()}`;
+                const timeStr = `${String(now.getHours()).padStart(2, '0')}-${String(now.getMinutes()).padStart(2, '0')}`;
+                let fileName = `ניתוח-AI_${dateStr}_${timeStr}.html`;
+                if (rubricChoice === 'lamed') {
+                    const cId = document.getElementById('criterionSelect').value;
+                    if (cId) fileName = `ניתוח-AI_${cId}_${dateStr}_${timeStr}.html`;
+                }
+
+                // הורדה
+                const blob = new Blob([fullHTML], { type: 'text/html;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+            } catch (err) {
+                console.error('HTML export error:', err);
+                alert('שגיאה ביצירת קובץ HTML: ' + err.message);
+            } finally {
                 btn.disabled = false;
                 btnText.textContent = originalText;
             }
