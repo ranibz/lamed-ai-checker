@@ -1,10 +1,14 @@
-// lamed-angle.js · v1.0.0 · 20/10/2026 · Netlify Function
+// lamed-angle.js · v1.1.0 · 20/10/2026 · Netlify Function
+// v1.1.0 — מעבר ל-gemini-2.5-flash-lite כברירת מחדל: למכסה החינמית של 2.5-flash יש רק 20 בקשות ביום,
+//          והיא משותפת עם analyze.js (בודק ה-AI של התלמידים). למודל Lite מכסה נפרדת וגבוהה בהרבה.
+//          אם גם היא נגמרת (429) — מנסה את המודל הבא ברשימה. הודעת שגיאה בעברית במקום הודעת Google.
+// v1.0.0 — יצירה ראשונית
 // מכוון הנושאים למ"ד — מקבל טקסט נושא של תלמיד ומחזיר JSON עם שתי זוויות תקשורתיות לפי מחוון למ"ד תשפ"ו.
 // הפרומפט נבנה כאן בשרת (ולא בדפדפן) כדי שהפונקציה לא תשמש כממשק פתוח ל-Gemini.
 // משתמש באותו מפתח Gemini של analyze.js (משתנה סביבה GEMINI_API_KEY).
 // פיתוח: רני בן זאב
 
-const MODEL = 'gemini-2.5-flash';
+const MODELS = ['gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-2.5-flash'];
 
 const RUBRIC = `מחוון למ"ד (למידה מבוססת דילמות) תשפ"ו — עבודת גמר 5 יח"ל במגמת תקשורת:
 פרק 1 מבוא (10): רקע כללי על הנושא (3), רלוונטיות הנושא (3), הצגת מכלול העבודה (2), פרומו (2).
@@ -75,16 +79,27 @@ exports.handler = async (event) => {
   if (text.length > 4000) text = text.slice(0, 4000);
 
   try {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${key}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: buildPrompt(text) }] }],
-        generationConfig: { temperature: 0.6, responseMimeType: 'application/json' }
-      })
-    });
-    const data = await res.json();
-    if (!res.ok) return { statusCode: 502, headers, body: JSON.stringify({ error: 'Gemini: ' + (data.error?.message || res.status) }) };
+    let res, data, lastErr = '';
+    for (const model of MODELS) {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ role: 'user', parts: [{ text: buildPrompt(text) }] }],
+          generationConfig: { temperature: 0.6, responseMimeType: 'application/json' }
+        })
+      });
+      data = await res.json();
+      if (res.ok) break;
+      lastErr = data.error?.message || String(res.status);
+      if (res.status !== 429 && res.status !== 404 && res.status !== 503) break;   // רק מכסה / מודל לא זמין / עומס → מודל הבא
+    }
+    if (!res.ok) {
+      const msg = res.status === 429
+        ? 'נגמרה המכסה היומית החינמית של Gemini. נסו שוב מחר, או הפעילו חיוב (Billing) בחשבון Google AI Studio.'
+        : 'Gemini: ' + lastErr;
+      return { statusCode: res.status === 429 ? 429 : 502, headers, body: JSON.stringify({ error: msg }) };
+    }
     const raw = (data.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('');
     let out;
     try { out = JSON.parse(raw); }
