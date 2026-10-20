@@ -6,350 +6,205 @@
 <title>מכוון הנושאים למ"ד</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <!--
-  מכוון הנושאים למ"ד — הופך נושא שתלמיד בחר לזווית תקשורתית לפי מחוון למ"ד תשפ"ו
-  v1.1.0 | 2026-10-20 | גרסה עצמאית: עובד מכל דפדפן דרך Gemini (Netlify function lamed-angle.js)
+  מכוון הנושאים למ"ד — מחולל פרומפט מקצועי לכיוון נושא עבודת גמר למ"ד לזווית תקשורתית
+  v2.0.0 | 2026-10-20 | מחולל פרומפט במקום קריאה ל-AI
   יומן שינויים:
-  v1.1.0 — הפנייה ל-AI עוברת לפונקציה /.netlify/functions/lamed-angle (Gemini). הפרומפט נבנה בשרת.
-           בתוך claude.ai הכלי ממשיך לעבוד דרך Claude.
-  v1.0.1 — טקסט הדוגמה כבר לא נכנס לתיבה (הדבקה התווספה אחריו ונראתה כמו העתק ישן); כפתור "ניקוי".
-  v1.0.0 — הדבקת טקסט התלמיד, שתי זוויות תקשורתיות (שאלת חקר, 10 מושגים, מאמרים מומלצים לחיפוש,
-           שיטת חקר, אוריינות תקשורתית/אזרחית, דילמות), העתקה לוואטסאפ, היסטוריה בדפדפן.
+  v2.0.0 — שינוי מהותי: הכלי כבר לא פונה ל-AI בעצמו (מכסות Gemini נחסמו). מדביקים את נושא התלמיד,
+           והכלי מייצר פרומפט מקצועי מוכן להעתקה ל-AI האישי (ChatGPT / Gemini / Claude).
+           הפרומפט כולל את מחוון למ"ד תשפ"ו ומבנה תשובה קבוע. עובד גם מקובץ במחשב, בלי שרת.
+           אין צורך יותר ב-lamed-angle.js.
+  v1.1.0 — גרסה עם Gemini דרך Netlify function.
+  v1.0.1 — תיבת טקסט ריקה + כפתור ניקוי.
+  v1.0.0 — יצירה ראשונית.
 -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800&family=Assistant:wght@400;600;700&display=swap">
 <style>
-/* Layout: עמודה אחת — שולחן עבודה של מורה: קלט למעלה, "תיק נושא" מתחת, היסטוריה בצד בדסקטופ */
+/* Layout: עמודה אחת — קלט למעלה, הפרומפט המוכן מתחת כ"דף תסריט" עם כפתור העתקה בולט */
 :root{
   --bg:#f1f3f6; --surface:#ffffff; --ink:#18212d; --muted:#5d6878; --line:#d9dee6;
   --onair:#d6362b; --onair-soft:#fde8e6; --signal:#1f5fa8; --signal-soft:#e4edf8;
-  --ok:#1f7a4d; --ok-soft:#e1f3e9;
+  --ok:#1f7a4d; --ok-soft:#e1f3e9; --script:#fbfbf8;
   --f-display:"Rubik","Assistant",system-ui,sans-serif;
   --f-body:"Assistant","Rubik",system-ui,sans-serif;
+  --f-mono:ui-monospace,"SFMono-Regular",Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#11161d; --surface:#1a212b; --ink:#e7ecf2; --muted:#98a3b3; --line:#2c3644;
   --onair:#ff6a5c; --onair-soft:#3a1d1b; --signal:#7fb0ec; --signal-soft:#1c2b3e;
-  --ok:#5fd09a; --ok-soft:#163327; color-scheme:dark}}
+  --ok:#5fd09a; --ok-soft:#163327; --script:#141a22; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#11161d; --surface:#1a212b; --ink:#e7ecf2; --muted:#98a3b3; --line:#2c3644;
   --onair:#ff6a5c; --onair-soft:#3a1d1b; --signal:#7fb0ec; --signal-soft:#1c2b3e;
-  --ok:#5fd09a; --ok-soft:#163327; color-scheme:dark}
+  --ok:#5fd09a; --ok-soft:#163327; --script:#141a22; color-scheme:dark}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;direction:rtl;
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;direction:rtl;margin:0;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
-.wrap{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:24px;align-items:start}
-@media(max-width:860px){.wrap{grid-template-columns:minmax(0,1fr)}}
-main{display:grid;gap:20px;min-width:0}
-header.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+main{max-width:820px;margin:0 auto;display:grid;gap:20px}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .onair{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.12em;color:var(--onair);border:2px solid var(--onair);
   border-radius:4px;padding:2px 8px;display:inline-flex;gap:6px;align-items:center}
 .onair i{width:8px;height:8px;border-radius:50%;background:var(--onair);display:inline-block}
-.busy .onair i{animation:blink 1s infinite}
-@keyframes blink{50%{opacity:.2}}
-@media (prefers-reduced-motion:reduce){.busy .onair i{animation:none}}
 h1{font-family:var(--f-display);font-weight:800;font-size:clamp(24px,4vw,32px);margin:0;line-height:1.2;text-wrap:balance}
-.sub{color:var(--muted);margin:4px 0 0;max-width:62ch}
+.sub{color:var(--muted);margin:6px 0 0;max-width:62ch}
 .panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:12px}
+.panel h2{font-family:var(--f-display);font-size:17px;margin:0;display:flex;gap:10px;align-items:center}
+.step{font-family:var(--f-display);font-size:13px;width:24px;height:24px;border-radius:50%;background:var(--onair);color:#fff;display:inline-grid;place-items:center;flex-shrink:0}
 label{font-weight:700;font-size:15px}
+.hint{color:var(--muted);font-size:14px;font-weight:400}
 input,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
-textarea{min-height:120px;resize:vertical}
-input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--signal);outline-offset:1px}
+textarea{min-height:110px;resize:vertical}
+input:focus,textarea:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--signal);outline-offset:1px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid transparent}
 .go{background:var(--onair);color:#fff;font-family:var(--f-display);font-weight:700;padding:11px 22px;font-size:16px}
-.go:disabled{opacity:.55;cursor:default}
-.ghost{background:transparent;border-color:var(--line);color:var(--ink);padding:8px 14px;font-size:14px}
+.go:disabled{opacity:.45;cursor:default}
+.ghost{background:transparent;border-color:var(--line);color:var(--ink);padding:9px 14px;font-size:14px}
 .ghost:hover{border-color:var(--signal);color:var(--signal)}
-.hint{color:var(--muted);font-size:14px}
-.err{background:var(--onair-soft);color:var(--onair);padding:10px 12px;border-radius:8px}
-/* תיק נושא */
-.file{display:grid;gap:16px}
-.filehead{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start}
-.eyebrow{font-family:var(--f-display);font-size:12px;letter-spacing:.1em;color:var(--muted);font-weight:500}
-.filehead h2{font-family:var(--f-display);font-size:22px;margin:2px 0 0;text-wrap:balance}
-.verdict{font-size:14px;font-weight:700;padding:4px 12px;border-radius:20px;white-space:nowrap}
-.v-yes{background:var(--ok-soft);color:var(--ok)} .v-no{background:var(--signal-soft);color:var(--signal)}
-.example{font-size:13px;color:var(--muted);border:1px dashed var(--line);border-radius:6px;padding:4px 10px;justify-self:start}
-.angle{background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-.angle>header{padding:16px 20px;border-bottom:1px solid var(--line);display:grid;gap:6px}
-.angle h3{font-family:var(--f-display);font-size:19px;margin:0;text-wrap:balance}
-.rq{background:var(--signal-soft);color:var(--ink);border-radius:8px;padding:10px 14px;font-weight:600}
-.rq b{color:var(--signal);font-family:var(--f-display);font-size:13px;display:block;letter-spacing:.04em}
-.sections{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
-@media(max-width:640px){.sections{grid-template-columns:minmax(0,1fr)}}
-.sec{padding:16px 20px;border-top:1px solid var(--line);min-width:0}
-.sec.full{grid-column:1/-1}
-.sec h4{margin:0 0 8px;font-family:var(--f-display);font-size:14px;display:flex;gap:8px;align-items:baseline}
-.sec h4 span{color:var(--muted);font-weight:500;font-size:12px}
-.sec p{margin:0 0 6px}
-.concepts{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.concepts li{display:grid;gap:0}
-.concepts b{font-weight:700}
-.concepts em{font-style:normal;color:var(--muted);font-size:14px}
-ul.plain{margin:0;padding-inline-start:18px;display:grid;gap:4px}
-.dilemma{border-inline-start:3px solid var(--onair);padding-inline-start:10px;margin-bottom:8px}
-.dilemma b{display:block}
-/* היסטוריה */
-aside{position:sticky;top:calc(16px + env(safe-area-inset-top,0px));display:grid;gap:8px;min-width:0}
-aside h2{font-family:var(--f-display);font-size:15px;margin:0}
-.hist{list-style:none;margin:0;padding:0;display:grid;gap:6px}
-.hist button{width:100%;text-align:right;background:var(--surface);border-color:var(--line);color:var(--ink);padding:8px 10px;font-size:14px;line-height:1.35}
-.hist button small{display:block;color:var(--muted);font-size:12px}
-.hist button.on{border-color:var(--onair)}
-footer{grid-column:1/-1;text-align:center;color:var(--muted);font-size:13px;margin-top:8px}
-.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:20px;font-size:14px}
+.script{background:var(--script);border:1px solid var(--line);border-radius:8px;padding:14px 16px;font-size:14.5px;line-height:1.65;
+  white-space:pre-wrap;max-height:340px;overflow:auto;min-width:0}
+.script mark{background:var(--signal-soft);color:var(--ink);border-radius:3px;padding:0 2px}
+.empty{color:var(--muted);text-align:center;padding:26px 10px;border:1px dashed var(--line);border-radius:8px}
+.ais{display:flex;gap:8px;flex-wrap:wrap}
+.ais a{color:var(--signal);background:var(--signal-soft);text-decoration:none;font-weight:600;padding:8px 14px;border-radius:8px;font-size:14px}
+.ais a:hover{text-decoration:underline}
+.copied{background:var(--ok-soft);color:var(--ok);font-weight:700;padding:4px 10px;border-radius:6px;font-size:14px}
+ol.what{margin:0;padding-inline-start:20px;display:grid;gap:2px;color:var(--muted);font-size:14.5px}
+footer{text-align:center;color:var(--muted);font-size:13px;margin-top:4px}
 </style>
 </head>
 <body>
 
-<div class="wrap">
 <main>
   <header>
     <div class="top"><span class="onair"><i></i>ON AIR</span><h1>מכוון הנושאים למ"ד</h1></div>
-    <p class="sub">מדביקים את הנושא כפי שהתלמיד כתב אותו, ומקבלים שתי זוויות תקשורתיות שעומדות בדרישות המחוון: שאלת חקר, 10 מושגים, מאמרים לחיפוש, שיטת חקר ודילמות.</p>
+    <p class="sub">מדביקים את הנושא כפי שהתלמיד כתב, ומקבלים פרומפט מקצועי מוכן. מעתיקים אותו ל-AI האישי ומקבלים שתי זוויות תקשורתיות לפי מחוון למ"ד.</p>
   </header>
 
-  <section class="panel" aria-label="טקסט התלמיד">
+  <section class="panel" aria-labelledby="h1s">
+    <h2 id="h1s"><span class="step">1</span>הנושא של התלמיד</h2>
     <label for="stu">שם התלמיד/ה <span class="hint">(לא חובה)</span></label>
     <input id="stu" type="text" autocomplete="off" placeholder="למשל: נועה כהן">
     <label for="txt">הנושא כפי שהתלמיד כתב</label>
     <textarea id="txt" placeholder="הדביקו כאן את הטקסט של התלמיד — משפט אחד או פסקה שלמה"></textarea>
-    <div class="row">
-      <button class="go" id="go">כוון לתקשורת</button>
-      <button class="ghost" id="clear">ניקוי</button>
-      <span class="hint" id="status"></span>
-    </div>
-    <div class="err" id="err" hidden></div>
+    <label for="why">למה בחר בנושא <span class="hint">(לא חובה — עוזר לשמור על מה שמסקרן אותו)</span></label>
+    <textarea id="why" style="min-height:70px" placeholder="למשל: אני אוהב כדורגל ומתעניין במה שקורה סביב המשחקים"></textarea>
+    <div class="row"><button class="ghost" id="clear">ניקוי</button></div>
   </section>
 
-  <section class="file" id="out" aria-live="polite"></section>
+  <section class="panel" aria-labelledby="h2s">
+    <h2 id="h2s"><span class="step">2</span>הפרומפט המוכן</h2>
+    <div id="promptBox" class="empty">הפרומפט יופיע כאן ברגע שתדביקו נושא.</div>
+    <div class="row">
+      <button class="go" id="copy" disabled>העתקת הפרומפט</button>
+      <span id="copied" class="copied" hidden>הועתק ✓</span>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h3s">
+    <h2 id="h3s"><span class="step">3</span>הדבקה ב-AI</h2>
+    <p style="margin:0">פתחו את ה-AI שלכם, הדביקו את הפרומפט (Ctrl+V) ושלחו.</p>
+    <div class="ais">
+      <a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
+      <a href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a>
+      <a href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
+    </div>
+    <p class="hint" style="margin:0">מה תקבלו בתשובה:</p>
+    <ol class="what">
+      <li>הערכה: עד כמה הנושא כבר תקשורתי</li>
+      <li>שתי זוויות תקשורתיות, ובכל אחת שאלת חקר</li>
+      <li>10 מושגים בעברית עם המונח באנגלית (פרק 2.2)</li>
+      <li>שני כיווני מאמרים עם מילות חיפוש לגוגל סקולר (פרק 2.1)</li>
+      <li>שיטת חקר בהיקף ריאלי (פרק 3)</li>
+      <li>אוריינות תקשורתית ואזרחית, ושתי דילמות (פרק 4)</li>
+    </ol>
+  </section>
+
+  <footer>פיתוח: רני בן זאב</footer>
 </main>
 
-<aside aria-label="היסטוריה">
-  <h2>נושאים קודמים</h2>
-  <p class="hint" id="histEmpty">הנושאים שתכוונו יישמרו כאן, בדפדפן הזה.</p>
-  <ul class="hist" id="hist"></ul>
-  <button class="ghost" id="clearHist" hidden>ניקוי ההיסטוריה</button>
-</aside>
-
-<footer>פיתוח: רני בן זאב</footer>
-</div>
-<div class="toast" id="toast" hidden></div>
-
 <script>
-const RUBRIC = `מחוון למ"ד (למידה מבוססת דילמות) תשפ"ו — עבודת גמר 5 יח"ל במגמת תקשורת:
-פרק 1 מבוא (10): רקע כללי על הנושא (3), רלוונטיות הנושא (3), הצגת מכלול העבודה (2), פרומו (2).
-פרק 2 רקע תיאורטי (15): סקירה אקדמית של שני מאמרים (5), 10 מושגים (10), ביבליוגרפיה.
-פרק 3 מתודולוגיה וחקר (10): מתודולוגיית החקר (1), ביצוע החקר (6), הצגת ממצאים (3).
-פרק 4 סיכום ודיון בדילמות (15): סיכום ומסקנות (3), אוריינות תקשורתית (2), אוריינות אזרחית (2), דיון בדילמות הנובעות מהחקר (8).
-פרק 5 הגנה (50).`;
+const $ = id => document.getElementById(id);
 
-const SCHEMA_HINT = `{
- "topic_short": "ניסוח קצר של הנושא המקורי (עד 8 מילים)",
- "already_media": true/false,
- "verdict": "משפט אחד: עד כמה הנושא כבר תקשורתי ומה חסר",
- "angles": [ // בדיוק 2 זוויות
-  {
-   "title": "שם הזווית (עד 8 מילים)",
-   "pitch": "2-3 משפטים: איך הנושא המקורי הופך לשאלה תקשורתית בלי לאבד את מה שסקרן את התלמיד",
-   "research_question": "שאלת חקר אחת, ממוקדת ונחקרת",
-   "concepts": [{"he":"מונח בעברית כפי שנאמר בתחום","en":"English term","why":"איך הוא משמש בעבודה, חצי משפט"}], // בדיוק 10
-   "articles": ["כיוון/נושא של מאמר אקדמי לחיפוש + מילות חיפוש באנגלית לגוגל סקולר"], // 2 פריטים. אל תמציא שמות מחברים או כותרות מאמרים
-   "method": {"type":"שם השיטה","corpus":"מה בדיוק נאסף/נחקר ובאיזה היקף ריאלי לתלמיד תיכון","steps":["צעד","צעד","צעד"]},
-   "media_literacy": "משפט: מה הקורא/הצופה ילמד על האופן שבו התקשורת עובדת",
-   "civic_literacy": "משפט: ההשלכה על החברה, הדמוקרטיה או הציבור",
-   "dilemmas": [{"q":"ניסוח הדילמה כשאלה","sides":"שני הצדדים בקצרה"}] // 2 דילמות
-  }
- ],
- "tip": "טיפ אחד למורה לשיחה עם התלמיד"
-}`;
-
-function buildPrompt(text){
-  return `אתה מנחה ותיק של עבודות גמר במגמת תקשורת בתיכון בישראל. תלמיד בחר נושא שמסקרן אותו לעבודת למ"ד. התפקיד שלך: לכוון את הנושא לזווית תקשורתית שתאפשר לו לעמוד במחוון, תוך שמירה על מה שמעניין אותו בנושא המקורי.
-
-${RUBRIC}
-
-כללים:
-- הזווית חייבת לאפשר שני מאמרים אקדמיים בתחום התקשורת ו-10 מושגים מתורת התקשורת (למשל סדר יום, מסגור, שומרי סף, תאוריית הטיפוח, בועת סינון, ייצוג, סטריאוטיפ, אינפלואנסרים, אלגוריתם, פייק ניוז, מוסר עיתונאי, השפעת תקשורת וכו'). העדף מושגים שמופיעים בתוכנית הלימודים של מגמת תקשורת בישראל.
-- מושגים: כתוב את המונח כפי שהוא נאמר בפועל בתחום בעברית, והאנגלית בשדה en. לא תרגום מילולי.
-- שיטת החקר חייבת להיות ריאלית לתלמיד תיכון בכמה שבועות: ניתוח תוכן של כתבות/פוסטים/סרטונים, סקר, ראיונות עומק, קבוצת מיקוד או השוואה בין כלי תקשורת.
-- הדילמות צריכות לנבוע מהחקר עצמו ולהיות דילמות אמיתיות (שני צדדים לגיטימיים).
-- אם הנושא כבר תקשורתי: הזווית הראשונה מחדדת אותו, השנייה מציעה כיוון חלופי. אם לא: שתי זוויות שונות זו מזו.
-- אל תמציא שמות מאמרים, מחברים או נתונים. במאמרים תן כיוון ומילות חיפוש.
-- כתוב בעברית תקנית, בלשון ברורה למורה.
+function buildPrompt(topic, name, why){
+  return `אתה מנחה ותיק של עבודות גמר במגמת תקשורת בתיכון בישראל.
+תלמיד${name ? ' (' + name + ')' : ''} בחר נושא שמסקרן אותו לעבודת גמר במסלול למ"ד (למידה מבוססת דילמות), 5 יחידות לימוד בתקשורת.
+המשימה שלך: לכוון את הנושא לזווית תקשורתית שתאפשר לו לעמוד במחוון, ובלי לאבד את מה שסקרן אותו בנושא המקורי.
 
 הנושא כפי שהתלמיד כתב:
-"""
-${text}
-"""
+"${topic}"
+${why ? `\nלמה בחר בנושא:\n"${why}"\n` : ''}
+מחוון למ"ד תשפ"ו (כדי שתבין מה הזווית צריכה לאפשר):
+- פרק 1 מבוא (10): רקע כללי, רלוונטיות הנושא, הצגת מכלול העבודה, פרומו.
+- פרק 2 רקע תיאורטי (15): סקירה של שני מאמרים אקדמיים, 10 מושגים, ביבליוגרפיה.
+- פרק 3 מתודולוגיה וחקר (10): מתודולוגיית החקר, ביצוע החקר, הצגת ממצאים.
+- פרק 4 סיכום ודיון בדילמות (15): סיכום ומסקנות, אוריינות תקשורתית, אוריינות אזרחית, דיון בדילמות הנובעות מהחקר (8 נקודות).
+- פרק 5 הגנה בעל פה (50).
 
-החזר JSON בלבד, ללא טקסט נוסף, במבנה הזה:
-${SCHEMA_HINT}`;
+כללים:
+1. הזווית חייבת לאפשר שני מאמרים אקדמיים מתחום התקשורת ו-10 מושגים מתורת התקשורת (למשל סדר יום, מסגור, שומרי סף, תאוריית הטיפוח, ייצוג, סטריאוטיפ, בועת סינון, אלגוריתם, אינפלואנסרים, פייק ניוז, אתיקה עיתונאית). העדף מושגים מתוכנית הלימודים של מגמת תקשורת בישראל.
+2. כתוב כל מושג כפי שהוא נאמר בפועל בתחום בעברית, ואחריו המונח באנגלית בסוגריים. לא תרגום מילולי.
+3. שיטת החקר חייבת להיות ריאלית לתלמיד תיכון בכמה שבועות: ניתוח תוכן של כתבות, פוסטים או סרטונים, סקר, ראיונות עומק, קבוצת מיקוד, או השוואה בין כלי תקשורת. ציין היקף מדויק (כמה פריטים, מאילו מקורות, באיזו תקופה).
+4. הדילמות צריכות לנבוע מהחקר עצמו ולהיות דילמות אמיתיות, עם שני צדדים לגיטימיים.
+5. אם הנושא כבר תקשורתי: הזווית הראשונה מחדדת אותו, השנייה מציעה כיוון חלופי. אם לא: שתי זוויות שונות זו מזו.
+6. אל תמציא שמות של מאמרים, מחברים או נתונים. במאמרים תן כיוון ומילות חיפוש באנגלית לגוגל סקולר.
+7. כתוב בעברית תקנית וברורה, ברמה שמתאימה לתלמיד תיכון.
+
+ענה בדיוק במבנה הזה:
+
+**הנושא המקורי:** (ניסוח קצר)
+**הערכה:** משפט אחד — עד כמה הנושא כבר תקשורתי ומה חסר.
+
+לכל אחת משתי הזוויות (זווית א, זווית ב):
+### זווית א: [שם הזווית]
+**הרעיון:** 2–3 משפטים — איך הנושא המקורי הופך לשאלה תקשורתית.
+**שאלת חקר:** שאלה אחת, ממוקדת ונחקרת.
+**10 מושגים (פרק 2.2):** רשימה ממוספרת — מושג בעברית (English term): איך הוא משמש בעבודה, בחצי משפט.
+**מאמרים לחיפוש (פרק 2.1):** שני כיוונים, לכל אחד מילות חיפוש באנגלית.
+**שיטת חקר (פרק 3):** שם השיטה, מה בדיוק נאסף ובאיזה היקף, ו-3 צעדי ביצוע.
+**אוריינות תקשורתית (4.2):** משפט אחד.
+**אוריינות אזרחית (4.3):** משפט אחד.
+**דילמות (4.4):** שתי דילמות, כל אחת כשאלה ואחריה שני הצדדים בקצרה.
+
+**טיפ להמשך:** משפט אחד — מאיפה כדאי לתלמיד להתחיל.`;
 }
 
-const EXAMPLE = {
-  example:true, student:'', input:'אני רוצה לעשות עבודה על כלבים נטושים ועל אימוץ כלבים, כי יש לי כלבה מאומצת',
-  topic_short:'כלבים נטושים ואימוץ כלבים', already_media:false,
-  verdict:'הנושא חברתי ולא תקשורתי. הדרך לחבר אותו היא דרך האופן שבו עמותות, כלי תקשורת ורשתות חברתיות מציגים כלבים נטושים.',
-  angles:[{
-    title:'קמפיינים לאימוץ ברשתות החברתיות',
-    pitch:'במקום לחקור את תופעת הנטישה, התלמיד/ה חוקר/ת איך עמותות "משווקות" כלבים לאימוץ באינסטגרם ובטיקטוק. הכלבה המאומצת נשארת נקודת המוצא האישית לפרומו ולמבוא.',
-    research_question:'אילו אסטרטגיות מסגור משמשות עמותות לאימוץ כלבים בישראל באינסטגרם, ואילו מהן מייצרות יותר מעורבות גולשים?',
-    concepts:[
-      {he:'מסגור',en:'Framing',why:'"הצלה דרמטית" מול "חבר למשפחה"'},
-      {he:'שיווק חברתי',en:'Social Marketing',why:'קמפיין לשינוי התנהגות ולא למכירה'},
-      {he:'מעורבות גולשים',en:'Engagement',why:'לייקים, תגובות ושיתופים כמדד הצלחה'},
-      {he:'אלגוריתם',en:'Algorithm',why:'מה שמקבל חשיפה ומה שנעלם בפיד'},
-      {he:'רגש בפרסום',en:'Emotional Appeal',why:'שימוש בחמלה ובאשמה'},
-      {he:'סיפור',en:'Storytelling',why:'סיפור "לפני/אחרי" של כלב'},
-      {he:'אינפלואנסרים',en:'Influencers',why:'ידוענים שמקדמים אימוץ'},
-      {he:'סדר יום',en:'Agenda Setting',why:'האם הרשתות מעלות את נושא הנטישה לסדר היום'},
-      {he:'תוכן גולשים',en:'UGC',why:'מאמצים שמשתפים את הכלב שלהם'},
-      {he:'ויראליות',en:'Virality',why:'למה פוסט מסוים מתפשט'}],
-    articles:['מסגור בקמפיינים של ארגונים ללא מטרות רווח ברשתות. חיפוש: "nonprofit framing social media engagement"',
-      'שימוש בתמונות של בעלי חיים ורגש בפרסום. חיפוש: "animal adoption advertising emotional appeal"'],
-    method:{type:'ניתוח תוכן כמותי ואיכותני',corpus:'60 פוסטים מ-3 עמותות אימוץ בישראל בשלושת החודשים האחרונים',
-      steps:['בניית דף קידוד: סוג המסגור, סוג התמונה, קריאה לפעולה','קידוד כל פוסט ורישום מספרי לייקים ותגובות','השוואה בין המסגורים ובחינה אילו מהם מקבלים יותר מעורבות']},
-    media_literacy:'הצופה לומד לזהות שגם תוכן "טוב" נבנה בטכניקות שכנוע פרסומיות.',
-    civic_literacy:'הרשתות מאפשרות לארגונים קטנים להשפיע על התנהגות ציבורית בלי תקציב פרסום.',
-    dilemmas:[{q:'האם מותר להשתמש בתמונות קשות של כלבים פצועים כדי לגייס מאמצים?',sides:'יעילות ההצלה מול מניפולציה רגשית ופגיעה בצופה'},
-      {q:'האם עמותה צריכה לייפות את אופי הכלב כדי שיאומץ?',sides:'סיכוי לבית מול החזרת הכלב ואמון הציבור'}]
-  },{
-    title:'ייצוג כלבים נטושים בחדשות',
-    pitch:'בחינה מתי הנושא מגיע לחדשות ובאיזה אופן: כסיפור נוגע ללב, כבעיה עירונית או כמכה של התעללות.',
-    research_question:'כיצד מסוקרת נטישת כלבים באתרי החדשות המרכזיים בישראל, ואילו מקורות מקבלים במה בכתבות?',
-    concepts:[{he:'שומרי סף',en:'Gatekeeping',why:'מי מחליט שהנושא חדשותי'},{he:'ערכי חדשות',en:'News Values',why:'למה רק מקרים קיצוניים נכנסים'},
-      {he:'מסגור',en:'Framing',why:'קורבן מול מטרד'},{he:'מקורות מידע',en:'News Sources',why:'עמותות, רשויות, וטרינרים'},
-      {he:'סדר יום',en:'Agenda Setting',why:'עונתיות הסיקור, למשל לפני חגים'},{he:'סנסציוניות',en:'Sensationalism',why:'כותרות דרמטיות'},
-      {he:'עיתונות רכה',en:'Soft News',why:'סיפורי חיות כקליקבייט'},{he:'ייצוג',en:'Representation',why:'מי מוצג כאשם'},
-      {he:'כותרת',en:'Headline',why:'ניתוח לשון הכותרות'},{he:'קליקבייט',en:'Clickbait',why:'כותרות למשיכת קליקים'}],
-    articles:['ערכי חדשות וסיקור בעלי חיים. חיפוש: "animal welfare news coverage framing"',
-      'שומרי סף ובחירת סיפורים באתרי חדשות. חיפוש: "online news gatekeeping story selection"'],
-    method:{type:'ניתוח תוכן השוואתי',corpus:'30 כתבות משלושה אתרי חדשות מהשנתיים האחרונות',
-      steps:['איסוף כתבות לפי מילות מפתח','קידוד מסגור ומקורות','השוואה בין האתרים']},
-    media_literacy:'הקורא מבין שבחירת הסיפור והזווית היא החלטה עיתונאית ולא שיקוף של המציאות.',
-    civic_literacy:'אופן הסיקור משפיע על הלחץ הציבורי לחקיקה ולתקציבים לרווחת בעלי חיים.',
-    dilemmas:[{q:'האם עיתונאי צריך לסקר מקרי התעללות קשים בפירוט?',sides:'זכות הציבור לדעת והרתעה מול פגיעה בקהל וחיקוי'},
-      {q:'האם נכון לפרסם שם של בעל כלב שנטש לפני הכרעה משפטית?',sides:'לחץ ציבורי מול הגנה על פרטיות וחזקת חפות'}]
-  }],
-  tip:'כדאי להתחיל מהכלבה של התלמיד/ה: איך מצאו אותה? אם דרך פוסט ברשת, זו הזווית הראשונה.'
-};
-
-const $ = id => document.getElementById(id);
-const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let current = null, history = [];
-try { history = JSON.parse(localStorage.getItem('lamed_angle_hist') || '[]'); } catch(e) { history = []; }
-const saveHist = () => { try { localStorage.setItem('lamed_angle_hist', JSON.stringify(history.slice(0,40))); } catch(e){} };
-
-function toast(t){ const el=$('toast'); el.textContent=t; el.hidden=false; clearTimeout(el._t); el._t=setTimeout(()=>el.hidden=true,2000); }
-
-function render(r){
-  current = r;
-  const out = $('out');
-  out.innerHTML = `
-    ${r.example ? '<span class="example">דוגמה: כך נראית תוצאה. הדביקו טקסט של תלמיד כדי לקבל תוצאה אמיתית.</span>' : ''}
-    <div class="filehead">
-      <div><div class="eyebrow">${r.student ? esc(r.student) + ' · ' : ''}הנושא המקורי</div>
-        <h2>${esc(r.topic_short)}</h2></div>
-      <span class="verdict ${r.already_media ? 'v-yes' : 'v-no'}">${r.already_media ? 'כבר תקשורתי, מחדדים' : 'צריך כיוון תקשורתי'}</span>
-    </div>
-    <p style="margin:0">${esc(r.verdict)}</p>
-    ${(r.angles||[]).map((a,i) => `
-    <article class="angle">
-      <header>
-        <div class="eyebrow">זווית ${i===0?'א':'ב'}</div>
-        <h3>${esc(a.title)}</h3>
-        <p style="margin:0">${esc(a.pitch)}</p>
-        <div class="rq"><b>שאלת חקר</b>${esc(a.research_question)}</div>
-      </header>
-      <div class="sections">
-        <div class="sec"><h4>10 מושגים <span>פרק 2.2</span></h4>
-          <ul class="concepts">${(a.concepts||[]).map(c=>`<li><b>${esc(c.he)} (${esc(c.en)})</b><em>${esc(c.why)}</em></li>`).join('')}</ul></div>
-        <div class="sec" style="display:grid;gap:14px;align-content:start">
-          <div><h4>מאמרים לחיפוש <span>פרק 2.1</span></h4>
-            <ul class="plain">${(a.articles||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
-          <div><h4>שיטת חקר <span>פרק 3</span></h4>
-            <p><b>${esc(a.method?.type)}:</b> ${esc(a.method?.corpus)}</p>
-            <ul class="plain">${(a.method?.steps||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>
-        </div>
-        <div class="sec"><h4>אוריינות תקשורתית <span>4.2</span></h4><p>${esc(a.media_literacy)}</p>
-          <h4 style="margin-top:12px">אוריינות אזרחית <span>4.3</span></h4><p>${esc(a.civic_literacy)}</p></div>
-        <div class="sec"><h4>דילמות <span>פרק 4.4</span></h4>
-          ${(a.dilemmas||[]).map(d=>`<div class="dilemma"><b>${esc(d.q)}</b>${esc(d.sides)}</div>`).join('')}</div>
-      </div>
-    </article>`).join('')}
-    ${r.tip ? `<div class="panel" style="gap:4px"><div class="eyebrow">טיפ לשיחה עם התלמיד</div><p style="margin:0">${esc(r.tip)}</p></div>` : ''}
-    <div class="row"><button class="ghost" id="copy">העתקה כטקסט (לוואטסאפ או למסמך)</button></div>`;
-  $('copy').onclick = copyText;
-  renderHist();
+function current(){
+  return { topic: $('txt').value.trim(), name: $('stu').value.trim(), why: $('why').value.trim() };
 }
 
-function asText(r){
-  const L = [];
-  L.push(`נושא: ${r.topic_short}${r.student ? ' (' + r.student + ')' : ''}`, r.verdict, '');
-  (r.angles||[]).forEach((a,i) => {
-    L.push(`*זווית ${i===0?'א':'ב'}: ${a.title}*`, a.pitch, `שאלת חקר: ${a.research_question}`, '', 'מושגים:');
-    (a.concepts||[]).forEach((c,j) => L.push(`${j+1}. ${c.he} (${c.en}): ${c.why}`));
-    L.push('', 'מאמרים לחיפוש:'); (a.articles||[]).forEach(x => L.push('• ' + x));
-    L.push('', `שיטת חקר: ${a.method?.type}: ${a.method?.corpus}`); (a.method?.steps||[]).forEach(x => L.push('• ' + x));
-    L.push('', `אוריינות תקשורתית: ${a.media_literacy}`, `אוריינות אזרחית: ${a.civic_literacy}`, '', 'דילמות:');
-    (a.dilemmas||[]).forEach(d => L.push(`• ${d.q} (${d.sides})`));
-    L.push('');
-  });
-  if (r.tip) L.push('טיפ: ' + r.tip);
-  return L.join('\n');
-}
-
-function copyText(){
-  const t = asText(current);
-  const fallback = () => { const ta=document.createElement('textarea'); ta.value=t; document.body.appendChild(ta); ta.select();
-    try{ document.execCommand('copy'); toast('הועתק'); } catch(e){ toast('סמנו והעתיקו ידנית'); } ta.remove(); };
-  try { navigator.clipboard.writeText(t).then(()=>toast('הועתק'), fallback); } catch(e){ fallback(); }
-}
-
-function renderHist(){
-  const ul = $('hist');
-  $('histEmpty').hidden = history.length > 0;
-  $('clearHist').hidden = history.length === 0;
-  ul.innerHTML = history.map((h,i) => `<li><button data-i="${i}" class="${current===h?'on':''}">${esc(h.topic_short)}<small>${esc(h.student || 'ללא שם')} · ${esc(h.date)}</small></button></li>`).join('');
-  ul.querySelectorAll('button').forEach(b => b.onclick = () => { const h = history[+b.dataset.i]; $('stu').value = h.student||''; $('txt').value = h.input; render(h); });
-}
-$('clearHist').onclick = () => { history = []; saveHist(); renderHist(); };
-
-const FN_URL = '/.netlify/functions/lamed-angle';
-let samplePromise = window.claude?.use ? window.claude.use('sample') : Promise.resolve(null);
-
-async function askGemini(text){
-  const res = await fetch(FN_URL, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ text }) });
-  let data = null; try { data = await res.json(); } catch(e) {}
-  if (!res.ok) throw { message: (data && data.error) || ('שגיאת שרת ' + res.status) };
-  return data;
-}
-
-$('go').onclick = async () => {
-  const text = $('txt').value.trim();
-  $('err').hidden = true;
-  if (text.length < 4) { $('err').textContent = 'הדביקו את הנושא של התלמיד בתיבת הטקסט.'; $('err').hidden = false; return; }
-  if (location.protocol === 'file:') { $('err').textContent = 'הדף נפתח מקובץ במחשב. פתחו אותו מהאתר (אחרי העלאה ל-GitHub) כדי שיתחבר ל-AI.'; $('err').hidden = false; return; }
-  const sample = await samplePromise;
-  $('go').disabled = true; document.body.classList.add('busy'); $('status').textContent = 'חושב על זוויות תקשורתיות… (כ-20 שניות)';
-  try {
-    const r = sample ? await sample.json(buildPrompt(text), { modelTier: 'default' }) : await askGemini(text);
-    if (!r || !Array.isArray(r.angles)) throw { message: 'התשובה הגיעה במבנה לא צפוי. נסו שוב.' };
-    r.input = text; r.student = $('stu').value.trim(); r.date = new Date().toLocaleDateString('he-IL');
-    history.unshift(r); saveHist(); render(r);
-    $('out').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  } catch(e) {
-    const m = e?.code === 'rate_limited' ? 'הגעתם למגבלת שימוש זמנית. נסו שוב בעוד כמה דקות.'
-            : e?.code === 'not_granted' ? 'לא ניתן אישור לשימוש ב-Claude מהדף. אשרו את ההרשאה ונסו שוב.'
-            : 'משהו השתבש: ' + (e?.message || 'שגיאה לא ידועה') + '. נסו שוב.';
-    $('err').textContent = m; $('err').hidden = false;
-  } finally {
-    $('go').disabled = false; document.body.classList.remove('busy'); $('status').textContent = '';
+function update(){
+  const c = current();
+  const box = $('promptBox');
+  $('copied').hidden = true;
+  if (c.topic.length < 3) {
+    box.className = 'empty'; box.textContent = 'הפרומפט יופיע כאן ברגע שתדביקו נושא.'; $('copy').disabled = true; return;
   }
+  box.className = 'script';
+  const p = buildPrompt(c.topic, c.name, c.why);
+  box.textContent = p;
+  $('copy').disabled = false;
+}
+
+['txt','stu','why'].forEach(id => $(id).addEventListener('input', update));
+
+$('clear').onclick = () => { $('txt').value = ''; $('stu').value = ''; $('why').value = ''; update(); $('txt').focus(); };
+
+$('copy').onclick = () => {
+  const c = current(); const t = buildPrompt(c.topic, c.name, c.why);
+  const done = () => { $('copied').hidden = false; };
+  const fallback = () => {
+    const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch(e) {
+      const r = document.createRange(); r.selectNodeContents($('promptBox'));
+      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    }
+    ta.remove();
+  };
+  try { navigator.clipboard.writeText(t).then(done, fallback); } catch(e) { fallback(); }
 };
 
-render(EXAMPLE);
-$('clear').onclick = () => { $('txt').value = ''; $('stu').value = ''; $('txt').focus(); };
+update();
 </script>
 </body>
 </html>
