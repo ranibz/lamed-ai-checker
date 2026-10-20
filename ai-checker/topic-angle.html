@@ -3,208 +3,474 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>מכוון הנושאים למ"ד</title>
-<meta name="claude:viewport-fit-sides" content="cover">
+<title>מכוון הנושאים למ"ד v3.0.0</title>
 <!--
-  מכוון הנושאים למ"ד — מחולל פרומפט מקצועי לכיוון נושא עבודת גמר למ"ד לזווית תקשורתית
-  v2.0.0 | 2026-10-20 | מחולל פרומפט במקום קריאה ל-AI
+  מכוון הנושאים למ"ד — עבודת גמר למ"ד שלב אחר שלב, כל שלב נפתח רק באישור המורה
+  v3.0.0 | 2026-10-20 | שלבים עם אישור מורה
   יומן שינויים:
-  v2.0.0 — שינוי מהותי: הכלי כבר לא פונה ל-AI בעצמו (מכסות Gemini נחסמו). מדביקים את נושא התלמיד,
-           והכלי מייצר פרומפט מקצועי מוכן להעתקה ל-AI האישי (ChatGPT / Gemini / Claude).
-           הפרומפט כולל את מחוון למ"ד תשפ"ו ומבנה תשובה קבוע. עובד גם מקובץ במחשב, בלי שרת.
-           אין צורך יותר ב-lamed-angle.js.
-  v1.1.0 — גרסה עם Gemini דרך Netlify function.
-  v1.0.1 — תיבת טקסט ריקה + כפתור ניקוי.
-  v1.0.0 — יצירה ראשונית.
+  v3.0.0 — שינוי מהותי: כניסת תלמיד (קישור כיתה ?code= + שם + קוד אישי של 4 ספרות) ושמירה בענן
+           (Supabase lamed, טבלאות lt_groups / lt_students, גישה רק דרך פונקציות).
+           חמישה שלבים לפי המחוון; פתוח רק שלב 1 (רעיון וקשר לתקשורת) עם פרומפט מקצועי ל-AI האישי.
+           התלמיד מגיש לאישור, והמורה (?code=...&mode=teacher) מאשר ופותח את השלב הבא או מחזיר לתיקון עם הערה.
+           שדות "במילים שלי" חוסמים הדבקה; העתקה מותרת בכל הדף.
+  v2.0.0 — מחולל פרומפט במקום קריאה ל-AI.
+  v1.x   — גרסאות עם Claude / Gemini.
 -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rubik:wght@500;700;800&family=Assistant:wght@400;600;700&display=swap">
 <style>
-/* Layout: עמודה אחת — קלט למעלה, הפרומפט המוכן מתחת כ"דף תסריט" עם כפתור העתקה בולט */
+/* Layout: עמודה אחת. פס שלבים למעלה (כמו פס שידור), מתחתיו כרטיס השלב הפעיל */
 :root{
   --bg:#f1f3f6; --surface:#ffffff; --ink:#18212d; --muted:#5d6878; --line:#d9dee6;
   --onair:#d6362b; --onair-soft:#fde8e6; --signal:#1f5fa8; --signal-soft:#e4edf8;
-  --ok:#1f7a4d; --ok-soft:#e1f3e9; --script:#fbfbf8;
+  --ok:#1f7a4d; --ok-soft:#e1f3e9; --wait:#a86200; --wait-soft:#fdf1dc; --script:#fbfbf8;
   --f-display:"Rubik","Assistant",system-ui,sans-serif;
   --f-body:"Assistant","Rubik",system-ui,sans-serif;
-  --f-mono:ui-monospace,"SFMono-Regular",Consolas,monospace;
 }
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#11161d; --surface:#1a212b; --ink:#e7ecf2; --muted:#98a3b3; --line:#2c3644;
   --onair:#ff6a5c; --onair-soft:#3a1d1b; --signal:#7fb0ec; --signal-soft:#1c2b3e;
-  --ok:#5fd09a; --ok-soft:#163327; --script:#141a22; color-scheme:dark}}
+  --ok:#5fd09a; --ok-soft:#163327; --wait:#f0b45a; --wait-soft:#3a2c14; --script:#141a22; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#11161d; --surface:#1a212b; --ink:#e7ecf2; --muted:#98a3b3; --line:#2c3644;
   --onair:#ff6a5c; --onair-soft:#3a1d1b; --signal:#7fb0ec; --signal-soft:#1c2b3e;
-  --ok:#5fd09a; --ok-soft:#163327; --script:#141a22; color-scheme:dark}
+  --ok:#5fd09a; --ok-soft:#163327; --wait:#f0b45a; --wait-soft:#3a2c14; --script:#141a22; color-scheme:dark}
 *{box-sizing:border-box}
-body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;direction:rtl;margin:0;
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.6;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px 40px}
-main{max-width:820px;margin:0 auto;display:grid;gap:20px}
-.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+main{max-width:860px;margin:0 auto;display:grid;gap:18px}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .onair{font-family:var(--f-display);font-weight:700;font-size:12px;letter-spacing:.12em;color:var(--onair);border:2px solid var(--onair);
   border-radius:4px;padding:2px 8px;display:inline-flex;gap:6px;align-items:center}
 .onair i{width:8px;height:8px;border-radius:50%;background:var(--onair);display:inline-block}
-h1{font-family:var(--f-display);font-weight:800;font-size:clamp(24px,4vw,32px);margin:0;line-height:1.2;text-wrap:balance}
-.sub{color:var(--muted);margin:6px 0 0;max-width:62ch}
-.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:12px}
-.panel h2{font-family:var(--f-display);font-size:17px;margin:0;display:flex;gap:10px;align-items:center}
-.step{font-family:var(--f-display);font-size:13px;width:24px;height:24px;border-radius:50%;background:var(--onair);color:#fff;display:inline-grid;place-items:center;flex-shrink:0}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(22px,4vw,30px);margin:0;line-height:1.2;text-wrap:balance}
+.ver{font-size:11px;color:var(--muted);border:1px solid var(--line);padding:1px 8px;border-radius:20px}
+.who{color:var(--muted);font-size:14px}
+.sub{color:var(--muted);margin:0;max-width:62ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:grid;gap:12px;min-width:0}
+.panel h2{font-family:var(--f-display);font-size:18px;margin:0;text-wrap:balance}
+.panel h3{font-family:var(--f-display);font-size:16px;margin:4px 0 0;display:flex;gap:10px;align-items:center}
+.num{font-family:var(--f-display);font-size:13px;width:24px;height:24px;border-radius:50%;background:var(--onair);color:#fff;display:inline-grid;place-items:center;flex-shrink:0}
 label{font-weight:700;font-size:15px}
 .hint{color:var(--muted);font-size:14px;font-weight:400}
 input,textarea{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
-textarea{min-height:110px;resize:vertical}
+textarea{min-height:90px;resize:vertical}
 input:focus,textarea:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--signal);outline-offset:1px}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid transparent}
 .go{background:var(--onair);color:#fff;font-family:var(--f-display);font-weight:700;padding:11px 22px;font-size:16px}
+.go.ok{background:var(--ok)}
 .go:disabled{opacity:.45;cursor:default}
 .ghost{background:transparent;border-color:var(--line);color:var(--ink);padding:9px 14px;font-size:14px}
 .ghost:hover{border-color:var(--signal);color:var(--signal)}
-.script{background:var(--script);border:1px solid var(--line);border-radius:8px;padding:14px 16px;font-size:14.5px;line-height:1.65;
-  white-space:pre-wrap;max-height:340px;overflow:auto;min-width:0}
-.script mark{background:var(--signal-soft);color:var(--ink);border-radius:3px;padding:0 2px}
-.empty{color:var(--muted);text-align:center;padding:26px 10px;border:1px dashed var(--line);border-radius:8px}
+.link{background:none;border:none;color:var(--signal);text-decoration:underline;padding:2px 4px;font-size:14px}
+.err{background:var(--onair-soft);color:var(--onair);padding:10px 12px;border-radius:8px}
+.banner{padding:12px 14px;border-radius:8px;font-weight:600}
+.b-wait{background:var(--wait-soft);color:var(--wait)} .b-ok{background:var(--ok-soft);color:var(--ok)} .b-back{background:var(--onair-soft);color:var(--onair)}
+.banner small{display:block;font-weight:400;color:var(--ink);margin-top:4px;white-space:pre-wrap}
+/* פס השלבים */
+.rail{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+@media(max-width:620px){.rail{grid-template-columns:minmax(0,1fr)}}
+.st{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px;text-align:right;color:var(--ink);display:grid;gap:2px;min-width:0}
+.st b{font-family:var(--f-display);font-size:14px;line-height:1.3}
+.st span{font-size:12px;color:var(--muted)}
+.st.on{border-color:var(--onair);box-shadow:inset 0 -3px 0 var(--onair)}
+.st.locked{opacity:.55;cursor:not-allowed}
+.st .tag{font-size:12px;font-weight:700}
+.t-done{color:var(--ok)} .t-open{color:var(--signal)} .t-wait{color:var(--wait)} .t-lock{color:var(--muted)}
+.script{background:var(--script);border:1px solid var(--line);border-radius:8px;padding:14px 16px;font-size:14px;line-height:1.65;
+  white-space:pre-wrap;max-height:260px;overflow:auto;min-width:0}
+.empty{color:var(--muted);text-align:center;padding:20px 10px;border:1px dashed var(--line);border-radius:8px}
 .ais{display:flex;gap:8px;flex-wrap:wrap}
 .ais a{color:var(--signal);background:var(--signal-soft);text-decoration:none;font-weight:600;padding:8px 14px;border-radius:8px;font-size:14px}
-.ais a:hover{text-decoration:underline}
+.saved{font-size:13px;color:var(--muted)}
 .copied{background:var(--ok-soft);color:var(--ok);font-weight:700;padding:4px 10px;border-radius:6px;font-size:14px}
-ol.what{margin:0;padding-inline-start:20px;display:grid;gap:2px;color:var(--muted);font-size:14.5px}
-footer{text-align:center;color:var(--muted);font-size:13px;margin-top:4px}
+.lockbox{text-align:center;padding:30px 16px;display:grid;gap:6px;justify-items:center}
+.lockbox .big{font-size:40px;line-height:1}
+/* מורה */
+.list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.list li button{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--surface);
+  border:1px solid var(--line);color:var(--ink);padding:12px 14px;text-align:right}
+.list li button:hover{border-color:var(--signal)}
+.list li button.sel{border-color:var(--onair)}
+.pill{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;white-space:nowrap}
+.p-wait{background:var(--wait-soft);color:var(--wait)} .p-stage{background:var(--signal-soft);color:var(--signal)} .p-back{background:var(--onair-soft);color:var(--onair)}
+.ans{display:grid;gap:10px}
+.ans div b{display:block;font-size:13px;color:var(--muted);font-weight:600}
+.ans div p{margin:0;white-space:pre-wrap;background:var(--bg);border-radius:8px;padding:8px 12px}
+.stats{display:flex;gap:8px;flex-wrap:wrap}
+.stats span{background:var(--bg);border-radius:8px;padding:6px 12px;font-size:14px}
+.stats b{font-family:var(--f-display)}
+footer{text-align:center;color:var(--muted);font-size:13px}
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 16px;border-radius:20px;font-size:14px;z-index:5}
 </style>
 </head>
 <body>
-
-<main>
-  <header>
-    <div class="top"><span class="onair"><i></i>ON AIR</span><h1>מכוון הנושאים למ"ד</h1></div>
-    <p class="sub">מדביקים את הנושא כפי שהתלמיד כתב, ומקבלים פרומפט מקצועי מוכן. מעתיקים אותו ל-AI האישי ומקבלים שתי זוויות תקשורתיות לפי מחוון למ"ד.</p>
-  </header>
-
-  <section class="panel" aria-labelledby="h1s">
-    <h2 id="h1s"><span class="step">1</span>הנושא של התלמיד</h2>
-    <label for="stu">שם התלמיד/ה <span class="hint">(לא חובה)</span></label>
-    <input id="stu" type="text" autocomplete="off" placeholder="למשל: נועה כהן">
-    <label for="txt">הנושא כפי שהתלמיד כתב</label>
-    <textarea id="txt" placeholder="הדביקו כאן את הטקסט של התלמיד — משפט אחד או פסקה שלמה"></textarea>
-    <label for="why">למה בחר בנושא <span class="hint">(לא חובה — עוזר לשמור על מה שמסקרן אותו)</span></label>
-    <textarea id="why" style="min-height:70px" placeholder="למשל: אני אוהב כדורגל ומתעניין במה שקורה סביב המשחקים"></textarea>
-    <div class="row"><button class="ghost" id="clear">ניקוי</button></div>
-  </section>
-
-  <section class="panel" aria-labelledby="h2s">
-    <h2 id="h2s"><span class="step">2</span>הפרומפט המוכן</h2>
-    <div id="promptBox" class="empty">הפרומפט יופיע כאן ברגע שתדביקו נושא.</div>
-    <div class="row">
-      <button class="go" id="copy" disabled>העתקת הפרומפט</button>
-      <span id="copied" class="copied" hidden>הועתק ✓</span>
-    </div>
-  </section>
-
-  <section class="panel" aria-labelledby="h3s">
-    <h2 id="h3s"><span class="step">3</span>הדבקה ב-AI</h2>
-    <p style="margin:0">פתחו את ה-AI שלכם, הדביקו את הפרומפט (Ctrl+V) ושלחו.</p>
-    <div class="ais">
-      <a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
-      <a href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a>
-      <a href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
-    </div>
-    <p class="hint" style="margin:0">מה תקבלו בתשובה:</p>
-    <ol class="what">
-      <li>הערכה: עד כמה הנושא כבר תקשורתי</li>
-      <li>שתי זוויות תקשורתיות, ובכל אחת שאלת חקר</li>
-      <li>10 מושגים בעברית עם המונח באנגלית (פרק 2.2)</li>
-      <li>שני כיווני מאמרים עם מילות חיפוש לגוגל סקולר (פרק 2.1)</li>
-      <li>שיטת חקר בהיקף ריאלי (פרק 3)</li>
-      <li>אוריינות תקשורתית ואזרחית, ושתי דילמות (פרק 4)</li>
-    </ol>
-  </section>
-
-  <footer>פיתוח: רני בן זאב</footer>
-</main>
+<main id="app"></main>
+<footer>פיתוח: רני בן זאב</footer>
+<div class="toast" id="toast" hidden></div>
 
 <script>
-const $ = id => document.getElementById(id);
+// ===== הגדרות =====
+const VERSION = 'v3.0.0';
+const SB_URL = 'https://hykpagdgaeulhghyvcqw.supabase.co';
+const SB_KEY = 'sb_publishable_o4Nff2ctoa1niZthDyMvLQ_e2hQwNuT';
 
-function buildPrompt(topic, name, why){
+const STAGES = [
+  {n:1, title:'רעיון וקשר לתקשורת', ch:'בחירת נושא'},
+  {n:2, title:'מבוא', ch:'פרק 1'},
+  {n:3, title:'רקע תיאורטי', ch:'פרק 2'},
+  {n:4, title:'מתודולוגיה וחקר', ch:'פרק 3'},
+  {n:5, title:'סיכום ודיון בדילמות', ch:'פרק 4'}
+];
+
+// שדות שלב 1. own=true: "במילים שלי" — הדבקה חסומה
+const S1_FIELDS = [
+  {id:'s1_topic', label:'הנושא שבחרתי', ph:'למשל: אלימות של שוטרים כלפי אוהדים במגרשי הכדורגל', req:true},
+  {id:'s1_why', label:'למה בחרתי בנושא', ph:'מה מסקרן אותי בנושא, ומה הקשר האישי שלי אליו', req:true},
+  {id:'s1_angle', label:'הזווית התקשורתית שבחרתי', ph:'אחרי שקראתי את התשובה של ה-AI: איזו זווית בחרתי, ולמה', req:true, own:true},
+  {id:'s1_rq', label:'שאלת החקר שלי', ph:'שאלה אחת, ממוקדת, שאפשר לחקור', req:true, own:true},
+  {id:'s1_concepts', label:'שלושה מושגי תקשורת מרכזיים לעבודה שלי', ph:'מושג, ובמשפט אחד למה הוא קשור לנושא', req:false, own:true}
+];
+
+// ===== עזרים =====
+const app = document.getElementById('app');
+const qs = new URLSearchParams(location.search);
+const CODE = (qs.get('code') || '').trim();
+const MODE = qs.get('mode');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(t){ const el=document.getElementById('toast'); el.textContent=t; el.hidden=false; clearTimeout(el._t); el._t=setTimeout(()=>el.hidden=true,2200); }
+function ss(k,v){ try{ if(v===undefined) return sessionStorage.getItem(k); if(v===null) sessionStorage.removeItem(k); else sessionStorage.setItem(k,v); }catch(e){ return null; } }
+
+async function rpc(fn, args){
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {
+    method:'POST',
+    headers:{ apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json' },
+    body: JSON.stringify(args)
+  });
+  const t = await r.text();
+  let j = null; try { j = t ? JSON.parse(t) : null; } catch(e) {}
+  if (!r.ok) throw new Error((j && (j.message || j.hint)) || ('שגיאת שרת ' + r.status));
+  return j;
+}
+
+function header(sub, who){
+  return `<header class="top">
+    <div class="brand"><span class="onair"><i></i>ON AIR</span><h1>מכוון הנושאים למ"ד</h1><span class="ver">${VERSION}</span></div>
+    ${who ? `<div class="who">${who}</div>` : ''}
+  </header>${sub ? `<p class="sub">${sub}</p>` : ''}`;
+}
+
+function noCode(){
+  app.innerHTML = header() + `<section class="panel"><h2>חסר קישור כיתה</h2>
+    <p style="margin:0">כדי להיכנס צריך את הקישור שקיבלתם מהמורה. הקישור נראה כך: <b>topic-angle.html?code=...</b></p></section>`;
+}
+
+// ===== הפרומפט לשלב 1 =====
+function buildPrompt(topic, why){
   return `אתה מנחה ותיק של עבודות גמר במגמת תקשורת בתיכון בישראל.
-תלמיד${name ? ' (' + name + ')' : ''} בחר נושא שמסקרן אותו לעבודת גמר במסלול למ"ד (למידה מבוססת דילמות), 5 יחידות לימוד בתקשורת.
-המשימה שלך: לכוון את הנושא לזווית תקשורתית שתאפשר לו לעמוד במחוון, ובלי לאבד את מה שסקרן אותו בנושא המקורי.
+אני תלמיד/ה במסלול למ"ד (למידה מבוססת דילמות), 5 יחידות לימוד בתקשורת, ובחרתי נושא שמסקרן אותי לעבודת הגמר.
+המשימה שלך בשלב הזה בלבד: לעזור לי לקשר את הנושא לעולם התקשורת, בלי לאבד את מה שמסקרן אותי בו.
 
-הנושא כפי שהתלמיד כתב:
+הנושא שבחרתי:
 "${topic}"
-${why ? `\nלמה בחר בנושא:\n"${why}"\n` : ''}
-מחוון למ"ד תשפ"ו (כדי שתבין מה הזווית צריכה לאפשר):
-- פרק 1 מבוא (10): רקע כללי, רלוונטיות הנושא, הצגת מכלול העבודה, פרומו.
-- פרק 2 רקע תיאורטי (15): סקירה של שני מאמרים אקדמיים, 10 מושגים, ביבליוגרפיה.
-- פרק 3 מתודולוגיה וחקר (10): מתודולוגיית החקר, ביצוע החקר, הצגת ממצאים.
-- פרק 4 סיכום ודיון בדילמות (15): סיכום ומסקנות, אוריינות תקשורתית, אוריינות אזרחית, דיון בדילמות הנובעות מהחקר (8 נקודות).
-- פרק 5 הגנה בעל פה (50).
+${why ? `\nלמה בחרתי בו:\n"${why}"\n` : ''}
+כדי שתדע מה הזווית צריכה לאפשר בהמשך העבודה (מחוון למ"ד תשפ"ו):
+- פרק 1 מבוא: רקע, רלוונטיות, הצגת העבודה, פרומו.
+- פרק 2 רקע תיאורטי: שני מאמרים אקדמיים ו-10 מושגים מתחום התקשורת.
+- פרק 3 מתודולוגיה וחקר: חקר שאני מבצע/ת בעצמי.
+- פרק 4: סיכום, אוריינות תקשורתית, אוריינות אזרחית ודיון בדילמות שעולות מהחקר.
 
 כללים:
-1. הזווית חייבת לאפשר שני מאמרים אקדמיים מתחום התקשורת ו-10 מושגים מתורת התקשורת (למשל סדר יום, מסגור, שומרי סף, תאוריית הטיפוח, ייצוג, סטריאוטיפ, בועת סינון, אלגוריתם, אינפלואנסרים, פייק ניוז, אתיקה עיתונאית). העדף מושגים מתוכנית הלימודים של מגמת תקשורת בישראל.
-2. כתוב כל מושג כפי שהוא נאמר בפועל בתחום בעברית, ואחריו המונח באנגלית בסוגריים. לא תרגום מילולי.
-3. שיטת החקר חייבת להיות ריאלית לתלמיד תיכון בכמה שבועות: ניתוח תוכן של כתבות, פוסטים או סרטונים, סקר, ראיונות עומק, קבוצת מיקוד, או השוואה בין כלי תקשורת. ציין היקף מדויק (כמה פריטים, מאילו מקורות, באיזו תקופה).
-4. הדילמות צריכות לנבוע מהחקר עצמו ולהיות דילמות אמיתיות, עם שני צדדים לגיטימיים.
-5. אם הנושא כבר תקשורתי: הזווית הראשונה מחדדת אותו, השנייה מציעה כיוון חלופי. אם לא: שתי זוויות שונות זו מזו.
-6. אל תמציא שמות של מאמרים, מחברים או נתונים. במאמרים תן כיוון ומילות חיפוש באנגלית לגוגל סקולר.
-7. כתוב בעברית תקנית וברורה, ברמה שמתאימה לתלמיד תיכון.
+1. הצע 2–3 זוויות תקשורתיות שונות זו מזו. כל זווית צריכה לאפשר מאמרים אקדמיים ומושגים מתורת התקשורת (למשל סדר יום, מסגור, שומרי סף, תאוריית הטיפוח, ייצוג, סטריאוטיפ, בועת סינון, אלגוריתם, אינפלואנסרים, פייק ניוז, אתיקה עיתונאית).
+2. כתוב מושגים כפי שהם נאמרים בפועל בתחום בעברית, ואחריהם המונח באנגלית בסוגריים.
+3. אל תכתוב בשבילי את העבודה ואל תנסח לי שאלת חקר סופית. הצע כיוונים, ושאל אותי שאלות שיעזרו לי לבחור.
+4. אל תמציא שמות של מאמרים, מחברים או נתונים.
+5. כתוב בעברית פשוטה וברורה.
 
-ענה בדיוק במבנה הזה:
-
-**הנושא המקורי:** (ניסוח קצר)
-**הערכה:** משפט אחד — עד כמה הנושא כבר תקשורתי ומה חסר.
-
-לכל אחת משתי הזוויות (זווית א, זווית ב):
-### זווית א: [שם הזווית]
-**הרעיון:** 2–3 משפטים — איך הנושא המקורי הופך לשאלה תקשורתית.
-**שאלת חקר:** שאלה אחת, ממוקדת ונחקרת.
-**10 מושגים (פרק 2.2):** רשימה ממוספרת — מושג בעברית (English term): איך הוא משמש בעבודה, בחצי משפט.
-**מאמרים לחיפוש (פרק 2.1):** שני כיוונים, לכל אחד מילות חיפוש באנגלית.
-**שיטת חקר (פרק 3):** שם השיטה, מה בדיוק נאסף ובאיזה היקף, ו-3 צעדי ביצוע.
-**אוריינות תקשורתית (4.2):** משפט אחד.
-**אוריינות אזרחית (4.3):** משפט אחד.
-**דילמות (4.4):** שתי דילמות, כל אחת כשאלה ואחריה שני הצדדים בקצרה.
-
-**טיפ להמשך:** משפט אחד — מאיפה כדאי לתלמיד להתחיל.`;
+ענה במבנה הזה:
+**האם הנושא כבר תקשורתי?** משפט או שניים.
+לכל זווית:
+### זווית [מספר]: [שם קצר]
+- **הרעיון:** איך הנושא שלי הופך לשאלה על תקשורת (ייצוג, סיקור, השפעה של מדיה וכו').
+- **כיוון לשאלת חקר:** במה השאלה יכולה לעסוק (לא ניסוח סופי).
+- **3 מושגי תקשורת שקשורים:** מושג (English): למה הוא קשור.
+- **מה אפשר לחקור בפועל:** חומר שאפשר לאסוף (כתבות, פוסטים, סרטונים, ראיונות, סקר).
+- **דילמה אפשרית:** שאלה אחת עם שני צדדים.
+**3 שאלות אליי:** שאלות שיעזרו לי לבחור בין הזוויות.`;
 }
 
-function current(){
-  return { topic: $('txt').value.trim(), name: $('stu').value.trim(), why: $('why').value.trim() };
-}
+// ================= תלמיד =================
+const ME = { name:'', pin:'', row:null, view:1, saveT:null };
 
-function update(){
-  const c = current();
-  const box = $('promptBox');
-  $('copied').hidden = true;
-  if (c.topic.length < 3) {
-    box.className = 'empty'; box.textContent = 'הפרומפט יופיע כאן ברגע שתדביקו נושא.'; $('copy').disabled = true; return;
-  }
-  box.className = 'script';
-  const p = buildPrompt(c.topic, c.name, c.why);
-  box.textContent = p;
-  $('copy').disabled = false;
-}
-
-['txt','stu','why'].forEach(id => $(id).addEventListener('input', update));
-
-$('clear').onclick = () => { $('txt').value = ''; $('stu').value = ''; $('why').value = ''; update(); $('txt').focus(); };
-
-$('copy').onclick = () => {
-  const c = current(); const t = buildPrompt(c.topic, c.name, c.why);
-  const done = () => { $('copied').hidden = false; };
-  const fallback = () => {
-    const ta = document.createElement('textarea'); ta.value = t; ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta); ta.select();
-    try { document.execCommand('copy'); done(); } catch(e) {
-      const r = document.createRange(); r.selectNodeContents($('promptBox'));
-      const s = getSelection(); s.removeAllRanges(); s.addRange(r);
-    }
-    ta.remove();
+function studentLogin(msg){
+  app.innerHTML = header('עבודת הגמר במסלול למ"ד, שלב אחר שלב. כל שלב נפתח אחרי שהמורה מאשר את הקודם.') + `
+  <section class="panel" style="max-width:440px">
+    <h2>כניסה</h2>
+    <label for="nm">שם מלא</label><input id="nm" type="text" autocomplete="name">
+    <label for="pn">קוד אישי (4 ספרות) <span class="hint">בכניסה הראשונה בוחרים קוד וזוכרים אותו</span></label>
+    <input id="pn" type="password" inputmode="numeric" maxlength="4" autocomplete="off">
+    <div class="err" id="err" ${msg?'':'hidden'}>${esc(msg||'')}</div>
+    <button class="go" id="go">כניסה</button>
+  </section>`;
+  const go = async () => {
+    const n = document.getElementById('nm').value.trim(), p = document.getElementById('pn').value.trim();
+    if (n.length < 2) return studentLogin('יש להקליד שם מלא');
+    if (!/^\d{4}$/.test(p)) return studentLogin('הקוד האישי צריך להיות 4 ספרות');
+    ME.name = n; ME.pin = p; await studentLoad(true);
   };
-  try { navigator.clipboard.writeText(t).then(done, fallback); } catch(e) { fallback(); }
-};
+  document.getElementById('go').onclick = go;
+  document.getElementById('pn').onkeydown = e => { if (e.key === 'Enter') go(); };
+}
 
-update();
+async function studentLoad(fromLogin){
+  try {
+    const rows = await rpc('lt_student_login', { p_code:CODE, p_name:ME.name, p_pin:ME.pin });
+    ME.row = rows[0]; ME.row.data = ME.row.data || {};
+    ss('lt_me_'+CODE, JSON.stringify({ name:ME.row.name, pin:ME.pin }));
+    if (fromLogin) ME.view = ME.row.stage_unlocked;
+    studentRender();
+  } catch(e) {
+    ss('lt_me_'+CODE, null);
+    studentLogin(e.message);
+  }
+}
+
+function stageState(n){
+  const r = ME.row;
+  if (n < r.stage_unlocked) return 'done';
+  if (n === r.stage_unlocked) return r.pending_stage === n ? 'wait' : 'open';
+  return 'lock';
+}
+const TAG = { done:['t-done','אושר ✓'], open:['t-open','פתוח'], wait:['t-wait','ממתין לאישור'], lock:['t-lock','🔒 נעול'] };
+
+function studentRender(){
+  const r = ME.row;
+  app.innerHTML = header('', `${esc(r.name)} · ${esc(r.group_name)} · <button class="link" id="out">יציאה</button>`) + `
+  <nav class="rail" aria-label="שלבי העבודה">${STAGES.map(s => { const st = stageState(s.n); return `
+    <button class="st ${ME.view===s.n?'on':''} ${st==='lock'?'locked':''}" data-n="${s.n}" ${st==='lock'?'aria-disabled="true"':''}>
+      <span>${s.ch}</span><b>${s.n}. ${s.title}</b><span class="tag ${TAG[st][0]}">${TAG[st][1]}</span></button>`; }).join('')}
+  </nav>
+  <section class="panel" id="stage"></section>`;
+  document.getElementById('out').onclick = () => { ss('lt_me_'+CODE, null); location.reload(); };
+  app.querySelectorAll('.st').forEach(b => b.onclick = () => {
+    const n = +b.dataset.n;
+    if (stageState(n) === 'lock') return toast('השלב ייפתח אחרי שהמורה יאשר את השלב הקודם');
+    ME.view = n; studentRender();
+  });
+  renderStage();
+}
+
+function renderStage(){
+  const box = document.getElementById('stage'), r = ME.row, s = STAGES[ME.view-1], st = stageState(s.n);
+  if (st === 'lock') { box.innerHTML = `<div class="lockbox"><div class="big">🔒</div><h2>${s.title}</h2><p class="hint">השלב ייפתח אחרי שהמורה יאשר את השלב הקודם.</p></div>`; return; }
+
+  let banner = '';
+  if (st === 'wait') banner = `<div class="banner b-wait">השלב הוגש לאישור המורה.<small>אפשר עדיין לתקן. כל שינוי נשמר והמורה רואה את הגרסה העדכנית.</small></div>`;
+  else if (st === 'done') banner = `<div class="banner b-ok">המורה אישר את השלב ✓</div>`;
+  else if (r.teacher_note) banner = `<div class="banner b-back">המורה החזיר את השלב לתיקון<small>${esc(r.teacher_note)}</small></div>`;
+
+  if (s.n !== 1) {
+    box.innerHTML = `<h2>שלב ${s.n}: ${s.title} <span class="hint">(${s.ch} במחוון)</span></h2>${banner}
+      <div class="empty">המורה פתח לך את השלב הזה ✓<br>ההנחיות והפרומפט לשלב יעלו כאן בקרוב.</div>`;
+    return;
+  }
+
+  const d = r.data, f = id => S1_FIELDS.find(x => x.id === id);
+  const field = x => `<label for="${x.id}">${x.label}${x.own?' <span class="hint">(במילים שלך, בלי הדבקה)</span>':''}</label>
+    <textarea id="${x.id}" class="${x.own?'own':''}" placeholder="${esc(x.ph)}" style="min-height:${x.id==='s1_topic'?70:90}px">${esc(d[x.id]||'')}</textarea>`;
+  box.innerHTML = `<h2>שלב 1: ${s.title}</h2>${banner}
+    <p class="hint" style="margin:0">בשלב הזה מחברים את הנושא שבחרת לעולם התקשורת. בסופו מגישים למורה לאישור, ורק אחרי האישור ייפתח פרק המבוא.</p>
+    <h3><span class="num">1</span>הנושא שלך</h3>
+    ${field(f('s1_topic'))}${field(f('s1_why'))}
+    <h3><span class="num">2</span>פרומפט ל-AI</h3>
+    <div id="pbox"></div>
+    <div class="row"><button class="go" id="copy">העתקת הפרומפט</button><span class="copied" id="copied" hidden>הועתק ✓</span></div>
+    <div class="ais"><a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a><a href="https://gemini.google.com/app" target="_blank" rel="noopener">Gemini</a><a href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a></div>
+    <p class="hint" style="margin:0">הדביקו את הפרומפט ב-AI, קראו את הזוויות שהוא מציע, וענו לו על השאלות שהוא שואל. אחר כך חזרו לכאן.</p>
+    <h3><span class="num">3</span>מה בחרת</h3>
+    ${field(f('s1_angle'))}${field(f('s1_rq'))}${field(f('s1_concepts'))}
+    <div class="err" id="serr" hidden></div>
+    <div class="row">
+      ${st==='open' ? `<button class="go ok" id="submit">הגשה לאישור המורה</button>` : ''}
+      <span class="saved" id="saved"></span>
+    </div>`;
+
+  const updPrompt = () => {
+    const t = document.getElementById('s1_topic').value.trim(), w = document.getElementById('s1_why').value.trim();
+    const pb = document.getElementById('pbox');
+    if (t.length < 3) { pb.className='empty'; pb.textContent='הפרומפט יופיע כאן אחרי שתכתבו את הנושא.'; document.getElementById('copy').disabled = true; return; }
+    pb.className='script'; pb.textContent = buildPrompt(t, w); document.getElementById('copy').disabled = false;
+  };
+  updPrompt();
+
+  S1_FIELDS.forEach(x => {
+    const el = document.getElementById(x.id);
+    el.addEventListener('input', () => { if (x.id==='s1_topic'||x.id==='s1_why') updPrompt(); queueSave(); });
+    el.addEventListener('blur', () => saveNow());
+    if (x.own) {
+      el.addEventListener('paste', e => { e.preventDefault(); toast('בשדה הזה כותבים במילים שלכם — הדבקה חסומה'); });
+      el.addEventListener('drop', e => { e.preventDefault(); toast('בשדה הזה כותבים במילים שלכם'); });
+    }
+  });
+
+  document.getElementById('copy').onclick = () => {
+    const t = document.getElementById('pbox').textContent;
+    const ok = () => { document.getElementById('copied').hidden = false; };
+    const fb = () => { const ta=document.createElement('textarea'); ta.value=t; ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); ok(); }catch(e){} ta.remove(); };
+    try { navigator.clipboard.writeText(t).then(ok, fb); } catch(e) { fb(); }
+  };
+
+  const sb = document.getElementById('submit');
+  if (sb) sb.onclick = async () => {
+    const er = document.getElementById('serr'); er.hidden = true;
+    const miss = S1_FIELDS.filter(x => x.req && (document.getElementById(x.id).value.trim().length < 3)).map(x => x.label);
+    if (miss.length) { er.textContent = 'כדי להגיש צריך למלא: ' + miss.join(', '); er.hidden = false; return; }
+    sb.disabled = true;
+    try {
+      await saveNow();
+      await rpc('lt_student_submit', { p_code:CODE, p_name:ME.row.name, p_pin:ME.pin, p_stage:1 });
+      ME.row.pending_stage = 1; ME.row.teacher_note = null;
+      toast('הוגש למורה ✓'); studentRender();
+    } catch(e) { er.textContent = e.message; er.hidden = false; sb.disabled = false; }
+  };
+}
+
+function collect(){
+  const d = Object.assign({}, ME.row.data);
+  S1_FIELDS.forEach(x => { const el = document.getElementById(x.id); if (el) d[x.id] = el.value; });
+  return d;
+}
+function queueSave(){ const s=document.getElementById('saved'); if(s) s.textContent='…'; clearTimeout(ME.saveT); ME.saveT = setTimeout(saveNow, 1500); }
+async function saveNow(){
+  clearTimeout(ME.saveT);
+  if (!ME.row || !document.getElementById('s1_topic')) return;
+  const d = collect();
+  if (JSON.stringify(d) === JSON.stringify(ME.row.data)) { const s=document.getElementById('saved'); if(s && s.textContent==='…') s.textContent='נשמר ✓'; return; }
+  try {
+    await rpc('lt_student_save', { p_code:CODE, p_name:ME.row.name, p_pin:ME.pin, p_data:d });
+    ME.row.data = d;
+    const s = document.getElementById('saved'); if (s) s.textContent = 'נשמר ✓ ' + new Date().toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  } catch(e) {
+    const s = document.getElementById('saved'); if (s) s.textContent = '⚠ לא נשמר: ' + e.message;
+  }
+}
+window.addEventListener('pagehide', () => { if (ME.row) saveNow(); });
+
+function studentStart(){
+  const saved = ss('lt_me_'+CODE);
+  if (saved) { try { const o = JSON.parse(saved); ME.name = o.name; ME.pin = o.pin; return studentLoad(false); } catch(e) {} }
+  studentLogin();
+}
+
+// ================= מורה =================
+const T = { pwd:null, group:'', rows:[], sel:null, timer:null };
+
+function teacherLogin(msg){
+  app.innerHTML = header('לוח המורה: מעקב אחרי השלבים ואישור מעבר לשלב הבא.') + `
+  <section class="panel" style="max-width:400px">
+    <h2>כניסת מורה</h2>
+    <label for="pw">סיסמת הכיתה</label><input id="pw" type="password">
+    <div class="err" id="err" ${msg?'':'hidden'}>${esc(msg||'')}</div>
+    <button class="go" id="go">כניסה</button>
+  </section>`;
+  const go = () => { T.pwd = document.getElementById('pw').value; teacherLoad(); };
+  document.getElementById('go').onclick = go;
+  document.getElementById('pw').onkeydown = e => { if (e.key === 'Enter') go(); };
+}
+
+async function teacherLoad(){
+  try {
+    T.rows = await rpc('lt_teacher_list', { p_code:CODE, p_pwd:T.pwd }) || [];
+    ss('lt_t_'+CODE, T.pwd);
+    teacherRender();
+    if (!T.timer) T.timer = setInterval(() => { if (!document.querySelector('#note:focus')) teacherLoad(); }, 30000);
+  } catch(e) {
+    ss('lt_t_'+CODE, null); clearInterval(T.timer); T.timer = null;
+    teacherLogin(/סיסמה/.test(e.message) ? 'סיסמה שגויה' : e.message);
+  }
+}
+
+function teacherRender(){
+  const rows = T.rows, waiting = rows.filter(r => r.pending_stage);
+  const studentLink = location.origin + location.pathname + '?code=' + encodeURIComponent(CODE);
+  const pill = r => r.pending_stage ? `<span class="pill p-wait">ממתין לאישור · שלב ${r.pending_stage}</span>`
+    : r.teacher_note ? `<span class="pill p-back">הוחזר לתיקון · שלב ${r.stage_unlocked}</span>`
+    : `<span class="pill p-stage">בשלב ${r.stage_unlocked}: ${STAGES[r.stage_unlocked-1].title}</span>`;
+  app.innerHTML = header('', `לוח מורה · ${esc(CODE)} · <button class="link" id="out">יציאה</button>`) + `
+  <section class="panel">
+    <div class="stats"><span><b>${rows.length}</b> תלמידים</span><span><b>${waiting.length}</b> ממתינים לאישור</span>
+      ${STAGES.map(s => `<span>שלב ${s.n}: <b>${rows.filter(r=>r.stage_unlocked===s.n).length}</b></span>`).join('')}</div>
+    <div class="row"><button class="ghost" id="copyLink">העתקת הקישור לתלמידים</button><button class="ghost" id="refresh">רענון</button></div>
+  </section>
+  <section class="panel">
+    <h2>התלמידים</h2>
+    ${rows.length ? `<ul class="list">${rows.map(r => `<li><button data-id="${r.id}" class="${T.sel===r.id?'sel':''}"><b>${esc(r.name)}</b>${pill(r)}</button></li>`).join('')}</ul>`
+      : `<div class="empty">עוד אין תלמידים. שלחו לכיתה את הקישור לתלמידים, וכל תלמיד שנכנס יופיע כאן.</div>`}
+  </section>
+  <section class="panel" id="detail" ${T.sel?'':'hidden'}></section>`;
+  document.getElementById('out').onclick = () => { ss('lt_t_'+CODE, null); location.reload(); };
+  document.getElementById('refresh').onclick = teacherLoad;
+  document.getElementById('copyLink').onclick = () => {
+    const ok = () => toast('הקישור הועתק');
+    try { navigator.clipboard.writeText(studentLink).then(ok, () => prompt('העתיקו:', studentLink)); } catch(e) {}
+  };
+  app.querySelectorAll('[data-id]').forEach(b => b.onclick = () => { T.sel = +b.dataset.id; teacherRender(); document.getElementById('detail').scrollIntoView({behavior:'smooth'}); });
+  if (T.sel) renderDetail();
+}
+
+function renderDetail(){
+  const r = T.rows.find(x => x.id === T.sel), box = document.getElementById('detail');
+  if (!r) { box.hidden = true; return; }
+  const d = r.data || {}, stage = r.pending_stage || r.stage_unlocked;
+  box.innerHTML = `<h2>${esc(r.name)}</h2>
+    <p class="hint" style="margin:0">פתוח עד שלב ${r.stage_unlocked} · עודכן ${new Date(r.updated_at).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</p>
+    ${r.pending_stage ? `<div class="banner b-wait">התלמיד הגיש את שלב ${r.pending_stage} לאישור</div>` : ''}
+    ${r.teacher_note ? `<div class="banner b-back">הוחזר לתיקון<small>${esc(r.teacher_note)}</small></div>` : ''}
+    <h3>שלב 1: רעיון וקשר לתקשורת</h3>
+    <div class="ans">${S1_FIELDS.map(x => `<div><b>${x.label}</b><p>${esc(d[x.id] || '—')}</p></div>`).join('')}</div>
+    ${stage < 5 ? `
+    <label for="note">הערה לתלמיד <span class="hint">(חובה בהחזרה לתיקון)</span></label>
+    <textarea id="note" placeholder="מה לחדד או לשנות"></textarea>
+    <div class="row">
+      <button class="go ok" id="approve">אישור ופתיחת שלב ${stage+1}: ${STAGES[stage].title}</button>
+      <button class="ghost" id="back">החזרה לתיקון</button>
+    </div>` : `<div class="banner b-ok">כל השלבים פתוחים</div>`}
+    <div class="row"><button class="link" id="pin">איפוס קוד אישי</button></div>
+    <div class="err" id="derr" hidden></div>`;
+  const er = m => { const e=document.getElementById('derr'); e.textContent=m; e.hidden=false; };
+  const ap = document.getElementById('approve');
+  if (ap) ap.onclick = async () => {
+    ap.disabled = true;
+    try { await rpc('lt_teacher_approve', { p_code:CODE, p_pwd:T.pwd, p_id:r.id, p_stage:stage }); toast(`שלב ${stage+1} נפתח ל${r.name}`); await teacherLoad(); }
+    catch(e) { er(e.message); ap.disabled = false; }
+  };
+  const bk = document.getElementById('back');
+  if (bk) bk.onclick = async () => {
+    const note = document.getElementById('note').value.trim();
+    if (note.length < 3) return er('כתבו הערה לתלמיד: מה לתקן');
+    try { await rpc('lt_teacher_return', { p_code:CODE, p_pwd:T.pwd, p_id:r.id, p_note:note }); toast('הוחזר לתיקון'); await teacherLoad(); }
+    catch(e) { er(e.message); }
+  };
+  document.getElementById('pin').onclick = async () => {
+    const p = String(Math.floor(1000 + Math.random()*9000));
+    try { await rpc('lt_teacher_reset_pin', { p_code:CODE, p_pwd:T.pwd, p_id:r.id, p_pin:p }); er(`הקוד האישי החדש של ${r.name}: ${p}. מסרו לתלמיד.`); document.getElementById('derr').className='banner b-ok'; }
+    catch(e) { er(e.message); }
+  };
+}
+
+function teacherStart(){
+  const saved = ss('lt_t_'+CODE);
+  if (saved) { T.pwd = saved; return teacherLoad(); }
+  teacherLogin();
+}
+
+// ===== הפעלה (בסוף, אחרי שכל המשתנים הוגדרו) =====
+if (!CODE) noCode();
+else if (MODE === 'teacher') teacherStart();
+else studentStart();
 </script>
 </body>
 </html>
